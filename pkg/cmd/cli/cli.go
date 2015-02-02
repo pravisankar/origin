@@ -56,13 +56,7 @@ func NewCommandCLI(name, fullName string) *cobra.Command {
 		},
 	}
 
-	// Override global default to https and port 8443
-	clientcmd.DefaultCluster.Server = defaultClusterURL
-
-	// TODO: there should be two client configs, one for OpenShift, and one for Kubernetes
-	clientConfig := DefaultClientConfig(cmds.PersistentFlags())
-	f := cmd.NewFactory(clientConfig)
-	f.BindFlags(cmds.PersistentFlags())
+	f := OpenShiftClientFactory(cmds)
 	out := os.Stdout
 
 	cmds.SetUsageTemplate(templates.CliUsageTemplate())
@@ -140,4 +134,16 @@ func DefaultClientConfig(flags *pflag.FlagSet) clientcmd.ClientConfig {
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 
 	return clientConfig
+}
+
+func OpenShiftClientFactory(c *cobra.Command) *cmd.Factory {
+	// Override global default to https and port 8443
+	clientcmd.DefaultCluster.Server = defaultClusterURL
+
+	// TODO: there should be two client configs, one for OpenShift, and one for Kubernetes
+	clientConfig := DefaultClientConfig(c.PersistentFlags())
+	f := cmd.NewFactory(clientConfig)
+	f.BindFlags(c.PersistentFlags())
+
+	return f
 }

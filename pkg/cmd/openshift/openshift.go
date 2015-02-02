@@ -7,6 +7,7 @@ import (
 	kubeversion "github.com/GoogleCloudPlatform/kubernetes/pkg/version"
 	"github.com/spf13/cobra"
 
+	"github.com/openshift/origin/pkg/cmd/admin"
 	"github.com/openshift/origin/pkg/cmd/cli"
 	"github.com/openshift/origin/pkg/cmd/experimental/config"
 	"github.com/openshift/origin/pkg/cmd/experimental/generate"
@@ -79,6 +80,7 @@ func NewCommandOpenShift() *cobra.Command {
 	root.AddCommand(server.NewCommandStartServer("start"))
 	root.AddCommand(cli.NewCommandCLI("cli", "openshift cli"))
 	root.AddCommand(cli.NewCmdKubectl("kube"))
+	root.AddCommand(admin.NewCommandAdmin("admin"))
 	root.AddCommand(newExperimentalCommand("openshift", "ex"))
 	root.AddCommand(newVersionCommand("version"))
 
