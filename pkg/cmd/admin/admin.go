@@ -8,6 +8,7 @@ import (
 
 	"github.com/openshift/origin/pkg/cmd/admin/policy"
 	"github.com/openshift/origin/pkg/cmd/admin/project"
+	"github.com/openshift/origin/pkg/cmd/admin/node"
 	"github.com/openshift/origin/pkg/cmd/cli/cmd"
 	"github.com/openshift/origin/pkg/cmd/experimental/buildchain"
 	exipfailover "github.com/openshift/origin/pkg/cmd/experimental/ipfailover"
@@ -58,6 +59,8 @@ func NewCommandAdmin(name, fullName string, out io.Writer) *cobra.Command {
 	cmds.AddCommand(admin.NewCommandCreateClient(admin.CreateClientCommandName, fullName+" "+admin.CreateClientCommandName, out))
 	cmds.AddCommand(admin.NewCommandCreateServerCert(admin.CreateServerCertCommandName, fullName+" "+admin.CreateServerCertCommandName, out))
 	cmds.AddCommand(admin.NewCommandCreateSignerCert(admin.CreateSignerCertCommandName, fullName+" "+admin.CreateSignerCertCommandName, out))
+
+	cmds.AddCommand(node.NewCommandManageNode(f, fullName, node.ManageNodeCommandName, out))
 
 	if name == fullName {
 		cmds.AddCommand(version.NewVersionCommand(fullName))
