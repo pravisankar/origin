@@ -5,6 +5,8 @@ http:
 storage:
   filesystem:
     rootdirectory: /registry
+auth:
+  openshift:
 middleware:
   repository:
     - name: openshift
