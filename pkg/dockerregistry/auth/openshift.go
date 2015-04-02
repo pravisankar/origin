@@ -1,4 +1,4 @@
-package openshift
+package auth
 
 import (
 	"encoding/base64"
@@ -10,23 +10,39 @@ import (
 	kapi "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	log "github.com/Sirupsen/logrus"
 	ctxu "github.com/docker/distribution/context"
-	repoauth "github.com/docker/distribution/registry/auth"
+	registryauth "github.com/docker/distribution/registry/auth"
 	authorizationapi "github.com/openshift/origin/pkg/authorization/api"
 	"github.com/openshift/origin/pkg/dockerregistry"
 	"golang.org/x/net/context"
 )
 
 func init() {
-	repoauth.Register("openshift", repoauth.InitFunc(newAccessController))
+	registryauth.Register("openshift", registryauth.InitFunc(newAccessController))
+}
+
+type contextKey int
+
+var bearerTokenKey contextKey = 0
+
+func WithBearerToken(parent context.Context, bearerToken string) context.Context {
+	return context.WithValue(parent, bearerTokenKey, bearerToken)
+}
+
+func BearerTokenFrom(ctx context.Context) (string, bool) {
+	bearerToken, ok := ctx.Value(bearerTokenKey).(string)
+	return bearerToken, ok
 }
 
 type AccessController struct {
-	UserRegistryConfig *dockerregistry.UserRegistryConfig
 }
+
+var _ registryauth.AccessController = &AccessController{}
 
 type authChallenge struct {
 	err error
 }
+
+var _ registryauth.Challenge = &authChallenge{}
 
 type OpenShiftAccess struct {
 	Namespace   string
@@ -34,9 +50,6 @@ type OpenShiftAccess struct {
 	Verb        string
 	BearerToken string
 }
-
-var _ repoauth.AccessController = &AccessController{}
-var _ repoauth.Challenge = &authChallenge{}
 
 // Errors used and exported by this package.
 var (
@@ -47,17 +60,9 @@ var (
 	ErrOpenShiftAccessDenied  = errors.New("openshift access denied")
 )
 
-func newAccessController(options map[string]interface{}) (repoauth.AccessController, error) {
+func newAccessController(options map[string]interface{}) (registryauth.AccessController, error) {
 	fmt.Println("Using OpenShift Auth handler")
-
-	var rc dockerregistry.UserRegistryConfig
-	err := rc.SetRegistryConfig()
-	if err != nil {
-		return nil, err
-	}
-	return &AccessController{
-		UserRegistryConfig: &rc,
-	}, nil
+	return &AccessController{}, nil
 }
 
 // Error returns the internal error string for this authChallenge.
@@ -81,7 +86,7 @@ func (ac *authChallenge) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Authorized handles checking whether the given request is authorized
 // for actions on resources allowed by openshift.
-func (ac *AccessController) Authorized(ctx context.Context, accessRecords ...repoauth.Access) (context.Context, error) {
+func (ac *AccessController) Authorized(ctx context.Context, accessRecords ...registryauth.Access) (context.Context, error) {
 	req, err := ctxu.GetRequest(ctx)
 	if err != nil {
 		return nil, err
@@ -145,11 +150,11 @@ func (ac *AccessController) Authorized(ctx context.Context, accessRecords ...rep
 			return nil, challenge
 		}
 	}
-	return context.WithValue(ctx, "BearerToken", bearerToken), nil
+	return WithBearerToken(ctx, bearerToken), nil
 }
 
 func VerifyOpenShiftAccess(osAccess *OpenShiftAccess, ac *AccessController) error {
-	client, err := ac.UserRegistryConfig.GetRegistryClient(osAccess.BearerToken)
+	client, err := dockerregistry.NewUserOpenShiftClient(osAccess.BearerToken)
 	if err != nil {
 		return err
 	}

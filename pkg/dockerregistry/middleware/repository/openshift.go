@@ -18,6 +18,7 @@ import (
 	"github.com/docker/libtrust"
 	"github.com/openshift/origin/pkg/client"
 	"github.com/openshift/origin/pkg/dockerregistry"
+	"github.com/openshift/origin/pkg/dockerregistry/auth"
 	imageapi "github.com/openshift/origin/pkg/image/api"
 	"golang.org/x/net/context"
 )
@@ -29,23 +30,16 @@ func init() {
 type repository struct {
 	distribution.Repository
 
-	sysregClient *client.Client
-	usrregConfig *dockerregistry.UserRegistryConfig
-	registryAddr string
-	namespace    string
-	name         string
+	registryClient *client.Client
+	registryAddr   string
+	namespace      string
+	name           string
 }
 
 // newRepository returns a new repository middleware.
 func newRepository(repo distribution.Repository, options map[string]interface{}) (distribution.Repository, error) {
 
-	var urc dockerregistry.UserRegistryConfig
-	err := urc.SetRegistryConfig()
-	if err != nil {
-		return nil, err
-	}
-	var src dockerregistry.SystemRegistryConfig
-	sysregClient, err := src.GetRegistryClient()
+	registryClient, err := dockerregistry.NewRegistryOpenShiftClient()
 	if err != nil {
 		return nil, err
 	}
@@ -59,12 +53,11 @@ func newRepository(repo distribution.Repository, options map[string]interface{})
 		return nil, errors.New("Incorrect image repo name")
 	}
 	return &repository{
-		Repository:   repo,
-		sysregClient: sysregClient,
-		usrregConfig: &urc,
-		registryAddr: registryAddr,
-		namespace:    nameParts[0],
-		name:         nameParts[1],
+		Repository:     repo,
+		registryClient: registryClient,
+		registryAddr:   registryAddr,
+		namespace:      nameParts[0],
+		name:           nameParts[1],
 	}, nil
 }
 
@@ -199,7 +192,7 @@ func (r *repository) Put(ctx context.Context, manifest *manifest.SignedManifest)
 		},
 	}
 
-	if err := r.sysregClient.ImageRepositoryMappings(r.namespace).Create(&irm); err != nil {
+	if err := r.registryClient.ImageRepositoryMappings(r.namespace).Create(&irm); err != nil {
 		log.Errorf("Error creating ImageRepositoryMapping: %s", err)
 		return err
 	}
@@ -222,12 +215,12 @@ func (r *repository) Put(ctx context.Context, manifest *manifest.SignedManifest)
 
 // Delete deletes the manifest with digest `dgst`.
 func (r *repository) Delete(ctx context.Context, dgst digest.Digest) error {
-	return r.sysregClient.Images().Delete(dgst.String())
+	return r.registryClient.Images().Delete(dgst.String())
 }
 
 // getImageRepository retrieves the ImageRepository for r.
 func (r *repository) getImageRepository(ctx context.Context) (*imageapi.ImageRepository, error) {
-	client, err := r.usrregConfig.GetRegistryClient(ctx.Value("BearerToken").(string))
+	client, err := getUserOpenShiftClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -237,13 +230,13 @@ func (r *repository) getImageRepository(ctx context.Context) (*imageapi.ImageRep
 // getImage retrieves the Image with digest `dgst`. This uses the registry's
 // credentials and should ONLY
 func (r *repository) getImage(ctx context.Context, dgst digest.Digest) (*imageapi.Image, error) {
-	return r.sysregClient.Images().Get(dgst.String())
+	return r.registryClient.Images().Get(dgst.String())
 }
 
 // getImageRepositoryTag retrieves the Image with tag `tag` for the ImageRepository
 // associated with r.
 func (r *repository) getImageRepositoryTag(ctx context.Context, tag string) (*imageapi.Image, error) {
-	client, err := r.usrregConfig.GetRegistryClient(ctx.Value("BearerToken").(string))
+	client, err := getUserOpenShiftClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +246,7 @@ func (r *repository) getImageRepositoryTag(ctx context.Context, tag string) (*im
 // getImageStreamImage retrieves the Image with digest `dgst` for the ImageRepository
 // associated with r. This ensures the user has access to the image.
 func (r *repository) getImageStreamImage(ctx context.Context, dgst digest.Digest) (*imageapi.Image, error) {
-	client, err := r.usrregConfig.GetRegistryClient(ctx.Value("BearerToken").(string))
+	client, err := getUserOpenShiftClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -289,4 +282,12 @@ func (r *repository) manifestFromImage(image *imageapi.Image) (*manifest.SignedM
 		return nil, err
 	}
 	return &sm, err
+}
+
+func getUserOpenShiftClient(ctx context.Context) (*client.Client, error) {
+	bearerToken, ok := auth.BearerTokenFrom(ctx)
+	if !ok {
+		return nil, errors.New("unable to create user OpenShift client: bearer token missing")
+	}
+	return dockerregistry.NewUserOpenShiftClient(bearerToken)
 }
