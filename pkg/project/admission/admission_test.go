@@ -10,17 +10,19 @@ import (
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client/testclient"
 
 	buildapi "github.com/openshift/origin/pkg/build/api"
+	projectcache "github.com/openshift/origin/pkg/project/cache"
 )
 
 // TestAdmissionExists verifies you cannot create Origin content if namespace is not known
 func TestAdmissionExists(t *testing.T) {
-	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
-	mockClient := &testclient.Fake{
-		Err: fmt.Errorf("DOES NOT EXIST"),
+	mockProjectCache := &projectcache.ProjectCache{
+		Store: cache.NewStore(cache.MetaNamespaceKeyFunc),
+		Client: &testclient.Fake{
+			Err: fmt.Errorf("DOES NOT EXIST"),
+		},
 	}
 	handler := &lifecycle{
-		client: mockClient,
-		store:  store,
+		cache: mockProjectCache,
 	}
 	build := &buildapi.Build{
 		ObjectMeta: kapi.ObjectMeta{Name: "buildid"},
@@ -62,9 +64,12 @@ func TestAdmissionLifecycle(t *testing.T) {
 	store := cache.NewStore(cache.MetaNamespaceIndexFunc)
 	store.Add(namespaceObj)
 	mockClient := &testclient.Fake{}
+	mockProjectCache := &projectcache.ProjectCache{
+		Store:  store,
+		Client: mockClient,
+	}
 	handler := &lifecycle{
-		client: mockClient,
-		store:  store,
+		cache: mockProjectCache,
 	}
 	build := &buildapi.Build{
 		ObjectMeta: kapi.ObjectMeta{Name: "buildid"},

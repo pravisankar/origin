@@ -80,6 +80,9 @@ type MasterConfig struct {
 	ImageConfig ImageConfig `json:"imageConfig"`
 
 	PolicyConfig PolicyConfig `json:"policyConfig"`
+
+	// ProjectNodeSelector holds global default node label selectors
+	ProjectNodeSelector string `json:"projectNodeSelector,omitempty"`
 }
 
 type PolicyConfig struct {
