@@ -2,6 +2,8 @@ package v1
 
 // AUTO-GENERATED FUNCTIONS START HERE
 import (
+	"regexp"
+
 	api "github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	v1 "github.com/GoogleCloudPlatform/kubernetes/pkg/api/v1"
 	conversion "github.com/GoogleCloudPlatform/kubernetes/pkg/conversion"
@@ -32,7 +34,8 @@ func convert_api_ListMeta_To_v1_ListMeta(in *api.ListMeta, out *v1.ListMeta, s c
 	if defaulting, found := s.DefaultingInterface(reflect.TypeOf(*in)); found {
 		defaulting.(func(*api.ListMeta))(in)
 	}
-	out.SelfLink = in.SelfLink
+	linkParts := regexp.MustCompile("v\\d*beta\\d*|v\\d*").Split(in.SelfLink, 2)
+	out.SelfLink = linkParts[0] + "v1" + linkParts[1]
 	out.ResourceVersion = in.ResourceVersion
 	return nil
 }
@@ -44,7 +47,8 @@ func convert_api_ObjectMeta_To_v1_ObjectMeta(in *api.ObjectMeta, out *v1.ObjectM
 	out.Name = in.Name
 	out.GenerateName = in.GenerateName
 	out.Namespace = in.Namespace
-	out.SelfLink = in.SelfLink
+	linkParts := regexp.MustCompile("v\\d*beta\\d*|v\\d*").Split(in.SelfLink, 2)
+	out.SelfLink = linkParts[0] + "v1" + linkParts[1]
 	out.UID = in.UID
 	out.ResourceVersion = in.ResourceVersion
 	if err := s.Convert(&in.CreationTimestamp, &out.CreationTimestamp, 0); err != nil {
