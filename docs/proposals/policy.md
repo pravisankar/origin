@@ -412,7 +412,7 @@ In addition to constraining basic resources, there are some rules that are more 
 			"verbs": ["*"], 
 			"resources": ["pods"],  
 			"attributeRestrictions": {
-				"kind": "sameMinionRestriction"
+				"kind": "sameNodeRestriction"
 			}
 		},
 	]
@@ -444,20 +444,20 @@ When Authorizer.Authorize() is called, it will see a
 	"verbs": ["*"], 
 	"resources": ["Pod"],  
 	"attributeRestrictions": {
-		"kind": "sameMinionRestriction"
+		"kind": "sameNodeRestriction"
 	}
 },
 
 ```
-Based on this information, the authorizer will know that it has to locate and evaluate something called, "sameMinionRestriction".  The code could be as simple as:
+Based on this information, the authorizer will know that it has to locate and evaluate something called, "sameNodeRestriction".  The code could be as simple as:
 ```
 // pseudo code
 switch policyRule.AttributeRestrictions.(type){
-case "sameMinionRestriction":
+case "sameNodeRestriction":
 	// check to see if the user is kubelet, if not fail
-	// check which minion the kubelet is running on
-	// get the pod that the minion is trying to modify
-	// check to see if that pod is running on the same minion as the kubelet
+	// check which node the kubelet is running on
+	// get the pod that the node is trying to modify
+	// check to see if that pod is running on the same node as the kubelet
 	// if so, return authorized.  if not, return denied
 }
 

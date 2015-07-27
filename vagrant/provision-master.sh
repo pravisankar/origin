@@ -14,16 +14,16 @@ sed -i 's/^NM_CONTROLLED=no/#NM_CONTROLLED=no/' ${NETWORK_CONF_PATH}ifcfg-eth1
 
 systemctl restart network
 
-# Setup hosts file to support ping by hostname to each minion in the cluster from apiserver
+# Setup hosts file to support ping by hostname to each node in the cluster from apiserver
 node_list=""
-minion_ip_array=(${MINION_IPS//,/ })
-for (( i=0; i<${#MINION_NAMES[@]}; i++)); do
-  minion=${MINION_NAMES[$i]}
-  node_list="${node_list},${minion}"
-  ip=${minion_ip_array[$i]}
-  if [ ! "$(cat /etc/hosts | grep $minion)" ]; then
-    echo "Adding $minion to hosts file"
-    echo "$ip $minion" >> /etc/hosts
+node_ip_array=(${NODE_IPS//,/ })
+for (( i=0; i<${#NODE_NAMES[@]}; i++)); do
+  node=${NODE_NAMES[$i]}
+  node_list="${node_list},${node}"
+  ip=${node_ip_array[$i]}
+  if [ ! "$(cat /etc/hosts | grep $node)" ]; then
+    echo "Adding $node to hosts file"
+    echo "$ip $node" >> /etc/hosts
   fi
 done
 if ! grep ${MASTER_IP} /etc/hosts; then
@@ -58,14 +58,14 @@ pushd /vagrant
     --hostnames=${MASTER_IP},${MASTER_NAME}
 
   # Certs for nodes
-  for (( i=0; i<${#MINION_NAMES[@]}; i++)); do
-    minion=${MINION_NAMES[$i]}
-    ip=${minion_ip_array[$i]}
+  for (( i=0; i<${#NODE_NAMES[@]}; i++)); do
+    node=${NODE_NAMES[$i]}
+    ip=${node_ip_array[$i]}
 
     /usr/bin/openshift admin create-node-config \
-      --node-dir="${SERVER_CONFIG_DIR}/node-${minion}" \
-      --node="${minion}" \
-      --hostnames="${minion},${ip}" \
+      --node-dir="${SERVER_CONFIG_DIR}/node-${node}" \
+      --node="${node}" \
+      --hostnames="${node},${ip}" \
       --master="https://${MASTER_IP}:8443" \
       --network-plugin="${OPENSHIFT_SDN_PLUGIN}" \
       --node-client-certificate-authority="${CERT_DIR}/ca.crt" \

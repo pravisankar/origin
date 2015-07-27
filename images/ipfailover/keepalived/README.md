@@ -106,7 +106,7 @@ HA Routing Failover Setup
         $ #    PRIMARY_HA_VIPS, SLAVE_HA_VIPS and INTERFACE.
 
 2. For demo purposes, we are going to flip the PRIMARY and SLAVE groups
-   on minion-2 ... this allows both minions to serve in an Active-Active
+   on minion-2 ... this allows both nodes to serve in an Active-Active
    fashion.
 
         $ #  Flip PRIMARY+SLAVE groups on minion-2 ("Papoy?! Ah Papoy!!").
@@ -115,7 +115,7 @@ HA Routing Failover Setup
                   s/^PRIMARY_GROUPS_OLD=\(.*\)/SLAVE_GROUPS=\1/g;" \
               settings.minion-2
 
-        $ #  Check what the differences are on the minions.
+        $ #  Check what the differences are on the nodes.
         $ diff conf/settings.example  settings.minion-1
         $ diff conf/settings.example  settings.minion-2
 
@@ -124,7 +124,7 @@ HA Routing Failover Setup
    slate. Step 4 below does this - but this is here just for my demo env
    reuse purposes.
 
-        $ #  Run these commands on the minions via vagrant ssh minion-{1,2}
+        $ #  Run these commands on the nodes via vagrant ssh minion-{1,2}
         $ #    sudo service keepalived stop
         $ #    sudo rm -f /etc/keepalived/keepalived.conf
 
@@ -137,7 +137,7 @@ HA Routing Failover Setup
 
 4. Setup router HA with failover using the 2 config files we created.
 
-        $ #  Run these commands on the minions via vagrant ssh minion-{1,2}
+        $ #  Run these commands on the nodes via vagrant ssh minion-{1,2}
         $ #    cd /vagrant/hack/exp/router-failover
         $ #    sudo ./failover-setup.sh settings.minion-{1,2}
 
@@ -148,11 +148,11 @@ HA Routing Failover Setup
         done
 
 
-5. On each minion, you can check what VIPs are being serviced by that
-   minion via `ip a ls dev enp0s8`. Substitute the appropriate interface
+5. On each node, you can check what VIPs are being serviced by that
+   node via `ip a ls dev enp0s8`. Substitute the appropriate interface
    name for `enp0s8` in your environment.
 
-        $ #  "minions laughing" ...
+        $ #  "nodes laughing" ...
         for m in minion-1 minion-2; do
            vagrant ssh $m -c "ip a ls dev enp0s8"
         done
@@ -184,41 +184,41 @@ specific VIP.
 HA Simple Failover Test (keepalived)
 ====================================
 The simplest test on VIP failover is to stop keepalived on one of the
-minions.
+nodes.
 
         $ vagrant ssh minion-1
 
-        $ #  Check which VIPs are served by this minion.
+        $ #  Check which VIPs are served by this node.
         ip a ls dev enp0s8
 
         $ #  Make sure the VIP in the busy loop above 10.245.2.111 is
-        $ #  "owned"/serviced by this minion. Or then use a VIP that's
-        $ #  serviced by this minion in the above mentioned busy looper
+        $ #  "owned"/serviced by this node. Or then use a VIP that's
+        $ #  serviced by this node in the above mentioned busy looper
         $ #  monitoring script (while true; curl ... done).
         sudo service keepalived stop
 
         $ vagrant ssh minion-2
-        #  Check that the VIPs from minion-1 are taken over by this minion.
+        #  Check that the VIPs from minion-1 are taken over by this node.
         ip a ls dev enp0s8
 
         $ vagrant ssh minion-1
         $ #  Set things back to a "good" state by starting back keepalived.
         sudo service keepalived start
 
-        $ #  Check the VIPs served by this minion.
+        $ #  Check the VIPs served by this node.
         ip a ls dev enp0s8
 
 
-HA Hard Failover Test (bring down the minion)
+HA Hard Failover Test (bring down the node)
 =============================================
 The hard failover VIP test basically involves stopping the whole shebang
 (keepalived, openshift-router and haproxy) by bringing down one of
-the minions.
+the nodes.
 
-1. Halt one of the minions ("Aww") ...
+1. Halt one of the nodes ("Aww") ...
 
         $ #  If you are monitoring a specific VIP ala 10.245.2.111 in the
-        $ #  example mentioned above, then bring down the minion that's
+        $ #  example mentioned above, then bring down the node that's
         $ #  "owns" that VIP. For now, bringing a random one down.
         $ vagrant halt minion-$((RANDOM%2 + 1))
 
@@ -233,14 +233,14 @@ the minions.
         $ #  && echo "YAY"
 
 
-3. Bring back the minion ("YAY") ...
+3. Bring back the node ("YAY") ...
 
         $ vagrant up minion-{1,2}
 
 
-4. Wait for the minion to come back online.
+4. Wait for the node to come back online.
 
-5. Check how the VIPs are balanced between the 2 minions.
+5. Check how the VIPs are balanced between the 2 nodes.
 
         for m in minion-1 minion-2; do
           vagrant ssh $m -c "ip a ls dev enp0s8"
@@ -264,7 +264,7 @@ HA Soft Failover Test
    just shows how long the Kubernetes Replication Controller takes to
    restart the services.
 
-        $ #  Stop the router on one of the minions ("Aaw").
+        $ #  Stop the router on one of the nodes ("Aaw").
         $ vagrant ssh minion-$((RANDOM%2 + 1))
         sudo kill -9 $(ps -e -opid,args | grep openshift-router |  \
                           grep -v grep | awk '{print $1}')
