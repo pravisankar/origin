@@ -162,7 +162,7 @@ example shown below.
 
         $ #  For an HA setup, first allocate/label a pool of nodes.
         $ for i in `seq 5`; do
-            openshift kube label nodes minion-$i hac=router-west
+            openshift kube label nodes node-$i hac=router-west
         done
 
         $ #  Next, enable the HA configuration on the labeled set.

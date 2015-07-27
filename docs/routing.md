@@ -3,8 +3,8 @@
 The `openshift/origin-haproxy-router` is an [HAProxy](http://www.haproxy.org/) router that is used as an external to internal
 interface to OpenShift [services](https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md).
 
-The router is meant to run as a pod.  When running the router you must ensure that the router can expose port 80 on the host (minion)
-in order to forward traffic.  In a deployed environment the router minion should also have external ip addresses
+The router is meant to run as a pod.  When running the router you must ensure that the router can expose port 80 on the host (node)
+in order to forward traffic.  In a deployed environment the router node should also have external ip addresses
 that can be exposed for DNS based routing.  
 
 ## Creating Routes
@@ -55,7 +55,7 @@ Once it is pulled it will start and be visible in the `docker ps` list of contai
 
 In order to run the router in a deployed environment the following conditions must be met:
 
-* The machine the router will run on must be provisioned as a minion in the cluster (for networking configuration)
+* The machine the router will run on must be provisioned as a node in the cluster (for networking configuration)
 * The machine may or may not be registered with the master.  Optimally it will not serve pods while also serving as the router
 * The machine must not have services running on it that bind to host port 80 since this is what the router uses for traffic
 
@@ -99,9 +99,9 @@ To test your route independent of DNS you can send a host header to the router. 
     [vagrant@openshift-master ~]$ oc create -f ~/pod.json
     [vagrant@openshift-master ~]$ oc create -f ~/service.json
     [vagrant@openshift-master ~]$ oc create -f ~/route.json
-    # take note of what minion number the router is deployed on
+    # take note of what node number the router is deployed on
     [vagrant@openshift-master ~]$ oc get pods
-    [vagrant@openshift-master ~]$ curl -H "Host:hello-openshift.v3.rhcloud.com" openshift-minion-<1,2>
+    [vagrant@openshift-master ~]$ curl -H "Host:hello-openshift.v3.rhcloud.com" openshift-node-<1,2>
     Hello OpenShift!
 
 

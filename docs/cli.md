@@ -353,7 +353,7 @@ This displays one or many resources.
 Possible
 resources are all OpenShift resources (builds, buildConfigs, deployments,
 deploymentConfigs, images, imageRepositories, routes, projects, and others) and
-all Kubernetes resources (pods, replicationControllers, services, minions,
+all Kubernetes resources (pods, replicationControllers, services, nodes,
 events).
 
 ```bash

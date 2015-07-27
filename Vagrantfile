@@ -68,7 +68,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     "os"                => "fedora",
     "dev_cluster"       => false,
     "insert_key"        => true,
-    "num_minions"       => ENV['OPENSHIFT_NUM_MINIONS'] || 2,
+    "num_nodes"       => ENV['OPENSHIFT_NUM_NODES'] || 2,
     "rebuild_yum_cache" => false,
     "cpus"              => ENV['OPENSHIFT_NUM_CPUS'] || 2,
     "memory"            => ENV['OPENSHIFT_MEMORY'] || 2048,
@@ -118,14 +118,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     # Start an OpenShift cluster
     # Currently this only works with the (default) VirtualBox provider.
 
-    # The number of minions to provision.
-    num_minion = (vagrant_openshift_config['num_minions'] || ENV['OPENSHIFT_NUM_MINIONS'] || 2).to_i
+    # The number of nodes to provision.
+    num_node = (vagrant_openshift_config['num_nodes'] || ENV['OPENSHIFT_NUM_NODES'] || 2).to_i
 
     # IP configuration
     master_ip = "10.245.2.2"
-    minion_ip_base = "10.245.2."
-    minion_ips = num_minion.times.collect { |n| minion_ip_base + "#{n+3}" }
-    minion_ips_str = minion_ips.join(",")
+    node_ip_base = "10.245.2."
+    node_ips = num_node.times.collect { |n| node_ip_base + "#{n+3}" }
+    node_ips_str = node_ips.join(",")
 
     # Determine the OS platform to use
     kube_os = vagrant_openshift_config['os'] || "fedora"
@@ -142,21 +142,21 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     config.vm.define "#{VM_NAME_PREFIX}master" do |config|
       config.vm.box = kube_box[kube_os]["name"]
       config.vm.box_url = kube_box[kube_os]["box_url"]
-      config.vm.provision "shell", inline: "/vagrant/vagrant/provision-master.sh #{master_ip} #{num_minion} #{minion_ips_str} #{ENV['OPENSHIFT_SDN']}"
+      config.vm.provision "shell", inline: "/vagrant/vagrant/provision-master.sh #{master_ip} #{num_node} #{node_ips_str} #{ENV['OPENSHIFT_SDN']}"
       config.vm.network "private_network", ip: "#{master_ip}"
       config.vm.hostname = "openshift-master"
     end
 
-    # OpenShift minion
-    num_minion.times do |n|
-      config.vm.define "#{VM_NAME_PREFIX}minion-#{n+1}" do |minion|
-        minion_index = n+1
-        minion_ip = minion_ips[n]
-        minion.vm.box = kube_box[kube_os]["name"]
-        minion.vm.box_url = kube_box[kube_os]["box_url"]
-        minion.vm.provision "shell", inline: "/vagrant/vagrant/provision-minion.sh #{master_ip} #{num_minion} #{minion_ips_str} #{minion_ip} #{minion_index} #{ENV['OPENSHIFT_SDN']}"
-        minion.vm.network "private_network", ip: "#{minion_ip}"
-        minion.vm.hostname = "openshift-minion-#{minion_index}"
+    # OpenShift node
+    num_node.times do |n|
+      config.vm.define "#{VM_NAME_PREFIX}node-#{n+1}" do |node|
+        node_index = n+1
+        node_ip = node_ips[n]
+        node.vm.box = kube_box[kube_os]["name"]
+        node.vm.box_url = kube_box[kube_os]["box_url"]
+        node.vm.provision "shell", inline: "/vagrant/vagrant/provision-node.sh #{master_ip} #{num_node} #{node_ips_str} #{node_ip} #{node_index} #{ENV['OPENSHIFT_SDN']}"
+        node.vm.network "private_network", ip: "#{node_ip}"
+        node.vm.hostname = "openshift-node-#{node_index}"
       end
     end
   else # Single VM dev environment
