@@ -10,6 +10,7 @@ import (
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/runtime"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/types"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/watch"
 
 	osdnapi "github.com/openshift/openshift-sdn/ovssubnet/api"
@@ -50,7 +51,7 @@ func (oi *OsdnRegistryInterface) GetSubnet(node string) (*osdnapi.Subnet, error)
 	if err != nil {
 		return nil, err
 	}
-	return &osdnapi.Subnet{NodeIP: hs.Host, Sub: hs.Subnet}, nil
+	return &osdnapi.Subnet{NodeIP: hs.HostIP, Sub: hs.Subnet}, nil
 }
 
 func (oi *OsdnRegistryInterface) DeleteSubnet(node string) error {
@@ -123,6 +124,21 @@ func (oi *OsdnRegistryInterface) CreateNode(node string, data string) error {
 	return fmt.Errorf("Feature not supported in native mode. SDN cannot create/register nodes.")
 }
 
+func (oi *OsdnRegistryInterface) getNodeAddressMap() (map[types.UID]string, error) {
+	nodeAddressMap := map[types.UID]string{}
+
+	nodes, err := oi.kClient.Nodes().List(labels.Everything(), fields.Everything())
+	if err != nil {
+		return nodeAddressMap, err
+	}
+	for _, node := range nodes.Items {
+		if len(node.Status.Addresses) > 0 {
+			nodeAddressMap[node.ObjectMeta.UID] = node.Status.Addresses[0].Address
+		}
+	}
+	return nodeAddressMap, nil
+}
+
 func (oi *OsdnRegistryInterface) WatchNodes(receiver chan *osdnapi.NodeEvent, stop chan bool) error {
 	nodeEventQueue := oscache.NewEventQueue(cache.MetaNamespaceKeyFunc)
 	listWatch := &cache.ListWatch{
@@ -135,24 +151,38 @@ func (oi *OsdnRegistryInterface) WatchNodes(receiver chan *osdnapi.NodeEvent, st
 	}
 	cache.NewReflector(listWatch, &kapi.Node{}, nodeEventQueue, 4*time.Minute).Run()
 
+	nodeAddressMap, err := oi.getNodeAddressMap()
+	if err != nil {
+		return err
+	}
+
 	for {
 		eventType, obj, err := nodeEventQueue.Pop()
 		if err != nil {
 			return err
 		}
+		node := obj.(*kapi.Node)
+		nodeIP := ""
+		if len(node.Status.Addresses) > 0 {
+			nodeIP = node.Status.Addresses[0].Address
+		}
+
 		switch eventType {
 		case watch.Added:
-			// we should ignore the modified event because status updates cause unnecessary noise
-			// the only time we would care about modified would be if the minion changes its IP address
-			// and hence all nodes need to update their vtep entries for the respective subnet
-			// create nodeEvent
-			node := obj.(*kapi.Node)
-			receiver <- &osdnapi.NodeEvent{Type: osdnapi.Added, Node: node.ObjectMeta.Name}
+			receiver <- &osdnapi.NodeEvent{Type: osdnapi.Added, Node: node.ObjectMeta.Name, NodeIP: nodeIP}
+			nodeAddressMap[node.ObjectMeta.UID] = nodeIP
+		case watch.Modified:
+			oldNodeIP, ok := nodeAddressMap[node.ObjectMeta.UID]
+			if ok && oldNodeIP != nodeIP {
+				// Node Added event will handle update subnet if there is ip mismatch
+				receiver <- &osdnapi.NodeEvent{Type: osdnapi.Added, Node: node.ObjectMeta.Name, NodeIP: nodeIP}
+				nodeAddressMap[node.ObjectMeta.UID] = nodeIP
+			}
 		case watch.Deleted:
 			// TODO: There is a chance that a Delete event will not get triggered.
 			// Need to use a periodic sync loop that lists and compares.
-			node := obj.(*kapi.Node)
 			receiver <- &osdnapi.NodeEvent{Type: osdnapi.Deleted, Node: node.ObjectMeta.Name}
+			delete(nodeAddressMap, node.ObjectMeta.UID)
 		}
 	}
 	return nil
