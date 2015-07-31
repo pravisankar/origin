@@ -1997,7 +1997,16 @@ func (kl *Kubelet) setNodeStatus(node *api.Node) error {
 			} else if len(addrs) == 0 {
 				return fmt.Errorf("no ip address for node %v", node.Name)
 			} else {
-				node.Status.Addresses = []api.NodeAddress{{Type: api.NodeLegacyHostIP, Address: addrs[0].String()}}
+				node.Status.Addresses = []api.NodeAddress{}
+				for _, addr := range addrs {
+					if addr.String() != "127.0.0.1" {
+						node.Status.Addresses = []api.NodeAddress{api.NodeAddress{Type: api.NodeLegacyHostIP, Address: addr.String()}}
+						break
+					}
+				}
+				if len(node.Status.Addresses) == 0 {
+					node.Status.Addresses = []api.NodeAddress{api.NodeAddress{Type: api.NodeLegacyHostIP, Address: addrs[0].String()}}
+				}
 			}
 		}
 	}
