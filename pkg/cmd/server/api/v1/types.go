@@ -224,6 +224,9 @@ type MasterNetworkConfig struct {
 	ClusterNetworkCIDR string `json:"clusterNetworkCIDR"`
 	HostSubnetLength   uint   `json:"hostSubnetLength"`
 	ServiceNetworkCIDR string `json:"serviceNetworkCIDR"`
+
+	// NamespacesWithoutIsolation are the namespaces/projects that are allowed to reach all networks in case of multi-tenant SDN
+	NamespacesWithoutIsolation []string `json:"namespacesWithoutIsolation"`
 }
 
 type ImageConfig struct {
