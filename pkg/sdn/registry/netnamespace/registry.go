@@ -15,6 +15,8 @@ type Registry interface {
 	GetNetNamespace(ctx kapi.Context, name string) (*api.NetNamespace, error)
 	// CreateNetNamespace creates a NetNamespace
 	CreateNetNamespace(ctx kapi.Context, nn *api.NetNamespace) (*api.NetNamespace, error)
+	// UpdateNetNamespace updates a NetNamespace
+	UpdateNetNamespace(ctx kapi.Context, nn *api.NetNamespace) (*api.NetNamespace, error)
 	// DeleteNetNamespace deletes a netnamespace
 	DeleteNetNamespace(ctx kapi.Context, name string) error
 }
@@ -48,6 +50,14 @@ func (s *storage) GetNetNamespace(ctx kapi.Context, name string) (*api.NetNamesp
 
 func (s *storage) CreateNetNamespace(ctx kapi.Context, nn *api.NetNamespace) (*api.NetNamespace, error) {
 	obj, err := s.Create(ctx, nn)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*api.NetNamespace), nil
+}
+
+func (s *storage) UpdateNetNamespace(ctx kapi.Context, nn *api.NetNamespace) (*api.NetNamespace, error) {
+	obj, _, err := s.Update(ctx, nn)
 	if err != nil {
 		return nil, err
 	}
