@@ -3,7 +3,6 @@ package netnamespace
 import (
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/rest"
-	"k8s.io/kubernetes/pkg/runtime"
 
 	"github.com/openshift/origin/pkg/sdn/api"
 )
@@ -20,25 +19,14 @@ type Registry interface {
 	DeleteNetNamespace(ctx kapi.Context, name string) error
 }
 
-// Storage is an interface for a standard REST Storage backend
-// TODO: move me somewhere common
-type Storage interface {
-	rest.Lister
-	rest.Getter
-
-	Create(ctx kapi.Context, obj runtime.Object) (runtime.Object, error)
-	Update(ctx kapi.Context, obj runtime.Object) (runtime.Object, bool, error)
-	Delete(ctx kapi.Context, name string, opts *kapi.DeleteOptions) (runtime.Object, error)
-}
-
 // storage puts strong typing around storage calls
 type storage struct {
-	Storage
+	rest.StandardStorage
 }
 
 // NewRegistry returns a new Registry interface for the given Storage. Any mismatched
 // types will panic.
-func NewRegistry(s Storage) Registry {
+func NewRegistry(s rest.StandardStorage) Registry {
 	return &storage{s}
 }
 
