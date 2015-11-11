@@ -7,11 +7,13 @@ import (
 	"k8s.io/kubernetes/pkg/api/rest"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/runtime"
+	"k8s.io/kubernetes/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/util/validation/field"
 	"k8s.io/kubernetes/pkg/watch"
 
 	"github.com/openshift/origin/pkg/sdn/api"
 	"github.com/openshift/origin/pkg/sdn/api/validation"
+	"github.com/openshift/origin/pkg/sdn/registry/netnamespace/vnid"
 	"github.com/openshift/origin/pkg/sdn/registry/netnamespace/vnidallocator"
 )
 
@@ -19,13 +21,16 @@ import (
 type REST struct {
 	registry Registry
 	vnids    vnidallocator.Interface
+	// globalNamespaces are the namespaces that have access to all pods in the cluster and vice versa.
+	globalNamespaces sets.String
 }
 
 // NewStorage returns a new REST.
-func NewStorage(registry Registry, vnids vnidallocator.Interface) *REST {
+func NewStorage(registry Registry, vnids vnidallocator.Interface, globalNamespaces []string) *REST {
 	return &REST{
-		registry: registry,
-		vnids:    vnids,
+		registry:         registry,
+		vnids:            vnids,
+		globalNamespaces: sets.NewString(globalNamespaces...),
 	}
 }
 
@@ -141,29 +146,61 @@ func (rs *REST) updateNetID(oldNetns, newNetns *api.NetNamespace) error {
 }
 
 func (rs *REST) assignNetID(netns *api.NetNamespace) error {
-	if isNetIDRequested(netns) {
+	if rs.isGlobalNamespace(netns) {
+		netns.NetID = new(uint)
+		*netns.NetID = vnid.GlobalVNID
+	} else if isNetIDSet(netns) {
+		// Try to respect the requested Net ID.
+		if err := rs.vnids.Allocate(*netns.NetID); err != nil {
+			el := field.ErrorList{field.Invalid(field.NewPath("netID"), netns.NetID, err.Error())}
+			return errors.NewInvalid(api.Kind("NetNamespace"), netns.Name, el)
+		}
+	} else {
 		// Allocate next available.
-		vnid, err := rs.vnids.AllocateNext()
+		id, err := rs.vnids.AllocateNext()
 		if err != nil {
 			el := field.ErrorList{field.Invalid(field.NewPath("netID"), netns.NetID, err.Error())}
 			return errors.NewInvalid(api.Kind("NetNamespace"), netns.Name, el)
 		}
-		netns.NetID = uint(vnid)
-	} else {
-		// Try to respect the requested Net ID.
-		if err := rs.vnids.Allocate(int(netns.NetID)); err != nil {
-			el := field.ErrorList{field.Invalid(field.NewPath("netID"), netns.NetID, err.Error())}
-			return errors.NewInvalid(api.Kind("NetNamespace"), netns.Name, el)
-		}
+		netns.NetID = &id
 	}
 	return nil
+
 }
 
 func (rs *REST) revokeNetID(netns *api.NetNamespace) error {
-	return rs.vnids.Release(int(netns.NetID))
+	// Skip GlobalVNID as it is not part of Net ID allocation
+	if *netns.NetID == vnid.GlobalVNID {
+		return nil
+	}
+
+	netnsList, err := rs.registry.ListNetNamespaces(kapi.NewContext(), labels.Everything(), fields.Everything())
+	if err != nil {
+		return err
+	}
+
+	// Don't release if this netid is used by any other namespaces
+	for _, nn := range netnsList.Items {
+		if nn.ObjectMeta.UID == netns.ObjectMeta.UID {
+			continue
+		}
+		if *nn.NetID == *netns.NetID {
+			return nil
+		}
+	}
+	return rs.vnids.Release(*netns.NetID)
 }
 
-func isNetIDRequested(netns *api.NetNamespace) bool {
-	//TODO: fix me
-	return (netns.NetID == 0)
+func (rs *REST) isGlobalNamespace(netns *api.NetNamespace) bool {
+	if (netns.NetID != nil) && (*netns.NetID == vnid.GlobalVNID) {
+		return true
+	}
+	if rs.globalNamespaces.Has(netns.NetName) {
+		return true
+	}
+	return false
+}
+
+func isNetIDSet(netns *api.NetNamespace) bool {
+	return (netns.NetID != nil)
 }
