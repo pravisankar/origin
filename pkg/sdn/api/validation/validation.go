@@ -108,7 +108,7 @@ func ValidateHostSubnetUpdate(obj *sdnapi.HostSubnet, old *sdnapi.HostSubnet) fi
 func ValidateNetNamespace(netnamespace *sdnapi.NetNamespace) field.ErrorList {
 	allErrs := validation.ValidateObjectMeta(&netnamespace.ObjectMeta, false, oapi.MinimalNameRequirements, field.NewPath("metadata"))
 
-	if netnamespace.NetID < 0 {
+	if netnamespace.NetID != nil && *netnamespace.NetID < 0 {
 		allErrs = append(allErrs, field.Invalid(field.NewPath("netID"), netnamespace.NetID, "invalid Net ID: cannot be negative"))
 	}
 	return allErrs

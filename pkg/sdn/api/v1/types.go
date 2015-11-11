@@ -61,7 +61,7 @@ type NetNamespace struct {
 	// NetName is the name of the network namespace
 	NetName string `json:"netname"`
 	// NetID is the network identifier of the network namespace assigned to each overlay network packet
-	NetID uint `json:"netid"`
+	NetID *uint `json:"netid,omitempty"`
 }
 
 // NetNamespaceList is a collection of NetNamespaces
