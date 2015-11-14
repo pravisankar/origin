@@ -352,6 +352,22 @@ func (c *MasterConfig) RunImageImportController() {
 	controller.Run()
 }
 
+// RunNetIDAllocationController starts the VNID allocation controller process.
+func (c *MasterConfig) RunNetIDAllocationController() {
+	// NetID allocator is only required for multitenant network plugin
+	if !sdnfactory.IsMultitenantNetworkPlugin(c.Options.NetworkConfig.NetworkPluginName) {
+		return
+	}
+
+	repair := vnidcontroller.NewRepair(15*time.Minute, c.MultitenantNetworkConfig.NetNamespaceRegistry, c.MultitenantNetworkConfig.NetIDRange, c.MultitenantNetworkConfig.NetIDRegistry)
+	if err := repair.RunOnce(); err != nil {
+		glog.Fatalf("Unable to initialize netnamespace allocation: %v", err)
+	}
+
+	runner := util.NewRunner(repair.RunUntil)
+	runner.Start()
+}
+
 // RunSecurityAllocationController starts the security allocation controller process.
 func (c *MasterConfig) RunSecurityAllocationController() {
 	alloc := c.Options.ProjectConfig.SecurityAllocator

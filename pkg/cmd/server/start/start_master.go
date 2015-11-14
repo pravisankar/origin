@@ -524,6 +524,7 @@ func startControllers(oc *origin.MasterConfig, kc *kubernetes.MasterConfig) erro
 	// used by admission controllers
 	oc.RunServiceAccountPullSecretsControllers()
 	oc.RunSecurityAllocationController()
+	oc.RunNetIDAllocationController()
 
 	if kc != nil {
 		_, rcClient, err := oc.GetServiceAccountClients(oc.ReplicationControllerServiceAccount)
