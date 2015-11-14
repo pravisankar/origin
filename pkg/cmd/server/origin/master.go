@@ -33,6 +33,7 @@ import (
 	utilwait "k8s.io/kubernetes/pkg/util/wait"
 	kversion "k8s.io/kubernetes/pkg/version"
 
+	sdnfactory "github.com/openshift/openshift-sdn/plugins/osdn/factory"
 	"github.com/openshift/origin/pkg/api/v1"
 	"github.com/openshift/origin/pkg/api/v1beta3"
 	buildclient "github.com/openshift/origin/pkg/build/client"
@@ -386,19 +387,6 @@ func (c *MasterConfig) GetRestStorage() map[string]rest.Storage {
 	hostSubnetStorage := hostsubnetetcd.NewREST(c.EtcdHelper)
 	clusterNetworkStorage := clusternetworketcd.NewREST(c.EtcdHelper)
 
-	netNamespaceStorage := netnamespaceetcd.NewREST(c.EtcdHelper)
-	netNamespaceRegistry := netnamespace.NewRegistry(netNamespaceStorage)
-
-	vnidRange, err := vnid.NewVNIDRange(vnid.MinVNID, vnid.MaxVNID-vnid.MinVNID+1)
-	if err != nil {
-		glog.Fatalf("Unable to create VNID range: %v", err)
-	}
-	namespaceVNIDAllocator := vnidallocator.NewAllocatorCustom(*vnidRange, func(max int, rangeSpec string) allocator.Interface {
-		mem := allocator.NewContiguousAllocationMap(max, rangeSpec)
-		etcd := etcdallocator.NewEtcd(mem, "/ranges/namespacevnids", "namespacevnidallocation", c.EtcdHelper)
-		return etcd
-	})
-
 	userStorage := useretcd.NewREST(c.EtcdHelper)
 	userRegistry := userregistry.NewRegistry(userStorage)
 	identityStorage := identityetcd.NewREST(c.EtcdHelper)
@@ -528,7 +516,6 @@ func (c *MasterConfig) GetRestStorage() map[string]rest.Storage {
 
 		"hostSubnets":     hostSubnetStorage,
 		"clusterNetworks": clusterNetworkStorage,
-		"netNamespaces":   netnamespace.NewStorage(netNamespaceRegistry, namespaceVNIDAllocator, []string{"default"}),
 
 		"users":                userStorage,
 		"groups":               groupetcd.NewREST(c.EtcdHelper),
@@ -565,6 +552,27 @@ func (c *MasterConfig) GetRestStorage() map[string]rest.Storage {
 		storage["buildConfigs/instantiatebinary"] = buildconfiginstantiate.NewBinaryStorage(buildGenerator, buildStorage, c.BuildLogClient(), kubeletClient)
 		storage["builds/log"] = buildlogregistry.NewREST(buildStorage, buildStorage, c.BuildLogClient(), kubeletClient)
 		storage["builds/details"] = buildDetailsStorage
+	}
+
+	if sdnfactory.IsMultitenantNetworkPlugin(c.Options.NetworkConfig.NetworkPluginName) {
+		netNamespaceStorage := netnamespaceetcd.NewREST(c.EtcdHelper)
+		netNamespaceRegistry := netnamespace.NewRegistry(netNamespaceStorage)
+		c.MultitenantNetworkConfig.NetNamespaceRegistry = netNamespaceRegistry
+
+		netIDRange, err := vnid.NewVNIDRange(vnid.MinVNID, vnid.MaxVNID-vnid.MinVNID+1)
+		if err != nil {
+			glog.Fatalf("Unable to create NetID range: %v", err)
+		}
+		c.MultitenantNetworkConfig.NetIDRange = *netIDRange
+
+		netIDAllocator := vnidallocator.NewAllocatorCustom(*netIDRange, func(max int, rangeSpec string) allocator.Interface {
+			mem := allocator.NewContiguousAllocationMap(max, rangeSpec)
+			etcd := etcdallocator.NewEtcd(mem, "/ranges/namespacevnids", "namespacevnidallocation", c.EtcdHelper)
+			c.MultitenantNetworkConfig.NetIDRegistry = etcd
+			return etcd
+		})
+
+		storage["netNamespaces"] = netnamespace.NewStorage(netNamespaceRegistry, netIDAllocator, []string{"default"})
 	}
 
 	return storage

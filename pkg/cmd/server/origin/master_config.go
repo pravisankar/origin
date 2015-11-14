@@ -18,12 +18,14 @@ import (
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
 	sacontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	kubeletclient "k8s.io/kubernetes/pkg/kubelet/client"
+	"k8s.io/kubernetes/pkg/registry/service"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 	"k8s.io/kubernetes/pkg/storage"
 	etcdstorage "k8s.io/kubernetes/pkg/storage/etcd"
 	kutilrand "k8s.io/kubernetes/pkg/util/rand"
 	"k8s.io/kubernetes/pkg/util/sets"
 
+	sdnutil "github.com/openshift/openshift-sdn/plugins/osdn/util"
 	"github.com/openshift/origin/pkg/auth/authenticator"
 	"github.com/openshift/origin/pkg/auth/authenticator/anonymous"
 	"github.com/openshift/origin/pkg/auth/authenticator/request/bearertoken"
@@ -57,6 +59,7 @@ import (
 	accesstokenetcd "github.com/openshift/origin/pkg/oauth/registry/oauthaccesstoken/etcd"
 	projectauth "github.com/openshift/origin/pkg/project/auth"
 	projectcache "github.com/openshift/origin/pkg/project/cache"
+	"github.com/openshift/origin/pkg/sdn/registry/netnamespace"
 	"github.com/openshift/origin/pkg/serviceaccounts"
 	usercache "github.com/openshift/origin/pkg/user/cache"
 	groupregistry "github.com/openshift/origin/pkg/user/registry/group"
@@ -124,6 +127,15 @@ type MasterConfig struct {
 	// To apply different access control to a system component, create a separate client/config specifically
 	// for that component.
 	PrivilegedLoopbackOpenShiftClient *osclient.Client
+
+	// MultitenantNetworkConfig provides default network configuration for multitenant network plugin
+	MultitenantNetworkConfig MultitenantNetworkConfig
+}
+
+type MultitenantNetworkConfig struct {
+	NetNamespaceRegistry netnamespace.Registry
+	NetIDRange           sdnutil.VNIDRange
+	NetIDRegistry        service.RangeRegistry
 }
 
 // BuildMasterConfig builds and returns the OpenShift master configuration based on the
