@@ -36,7 +36,8 @@ import (
 	"github.com/openshift/origin/pkg/security/uid"
 	"github.com/openshift/origin/pkg/security/uidallocator"
 
-	"github.com/openshift/openshift-sdn/plugins/osdn/factory"
+	sdnfactory "github.com/openshift/openshift-sdn/plugins/osdn/factory"
+	vnidcontroller "github.com/openshift/openshift-sdn/plugins/osdn/vnidallocator/controller"
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
 	"github.com/openshift/origin/pkg/cmd/server/bootstrappolicy"
 	serviceaccountcontrollers "github.com/openshift/origin/pkg/serviceaccounts/controllers"
@@ -329,7 +330,7 @@ func (c *MasterConfig) RunDeploymentImageChangeTriggerController() {
 // RunSDNController runs openshift-sdn if the said network plugin is provided
 func (c *MasterConfig) RunSDNController() {
 	oClient, kClient := c.SDNControllerClients()
-	controller, _, err := factory.NewPlugin(c.Options.NetworkConfig.NetworkPluginName, oClient, kClient, "", "", nil)
+	controller, _, err := sdnfactory.NewPlugin(c.Options.NetworkConfig.NetworkPluginName, oClient, kClient, "", "", nil)
 	if err != nil {
 		glog.Fatalf("SDN initialization failed: %v", err)
 	}

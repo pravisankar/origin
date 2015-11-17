@@ -11,7 +11,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 
-	"github.com/openshift/openshift-sdn/plugins/osdn/factory"
+	sdnfactory "github.com/openshift/openshift-sdn/plugins/osdn/factory"
 	"github.com/openshift/origin/pkg/cmd/server/kubernetes"
 	kerrors "k8s.io/kubernetes/pkg/api/errors"
 	kcmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
@@ -256,7 +256,7 @@ func RunSDNController(config *kubernetes.NodeConfig, nodeConfig configapi.NodeCo
 
 	ch := make(chan struct{})
 
-	controller, endpointFilter, err := factory.NewPlugin(nodeConfig.NetworkConfig.NetworkPluginName, oclient, config.Client, nodeConfig.NodeName, nodeConfig.NodeIP, ch)
+	controller, endpointFilter, err := sdnfactory.NewPlugin(nodeConfig.NetworkConfig.NetworkPluginName, oclient, config.Client, nodeConfig.NodeName, nodeConfig.NodeIP, ch)
 	if err != nil {
 		glog.Fatalf("SDN initialization failed: %v", err)
 	}
