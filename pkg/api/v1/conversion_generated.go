@@ -4221,12 +4221,8 @@ func autoconvert_api_NetNamespace_To_v1_NetNamespace(in *sdnapi.NetNamespace, ou
 		return err
 	}
 	out.NetName = in.NetName
-	out.NetID = in.NetID
+	// in.NetID has no peer in out
 	return nil
-}
-
-func convert_api_NetNamespace_To_v1_NetNamespace(in *sdnapi.NetNamespace, out *sdnapiv1.NetNamespace, s conversion.Scope) error {
-	return autoconvert_api_NetNamespace_To_v1_NetNamespace(in, out, s)
 }
 
 func autoconvert_api_NetNamespaceList_To_v1_NetNamespaceList(in *sdnapi.NetNamespaceList, out *sdnapiv1.NetNamespaceList, s conversion.Scope) error {
@@ -4242,7 +4238,7 @@ func autoconvert_api_NetNamespaceList_To_v1_NetNamespaceList(in *sdnapi.NetNames
 	if in.Items != nil {
 		out.Items = make([]sdnapiv1.NetNamespace, len(in.Items))
 		for i := range in.Items {
-			if err := convert_api_NetNamespace_To_v1_NetNamespace(&in.Items[i], &out.Items[i], s); err != nil {
+			if err := s.Convert(&in.Items[i], &out.Items[i], 0); err != nil {
 				return err
 			}
 		}
@@ -4361,12 +4357,10 @@ func autoconvert_v1_NetNamespace_To_api_NetNamespace(in *sdnapiv1.NetNamespace, 
 		return err
 	}
 	out.NetName = in.NetName
-	out.NetID = in.NetID
+	if err := s.Convert(&in.NetID, &out.NetID, 0); err != nil {
+		return err
+	}
 	return nil
-}
-
-func convert_v1_NetNamespace_To_api_NetNamespace(in *sdnapiv1.NetNamespace, out *sdnapi.NetNamespace, s conversion.Scope) error {
-	return autoconvert_v1_NetNamespace_To_api_NetNamespace(in, out, s)
 }
 
 func autoconvert_v1_NetNamespaceList_To_api_NetNamespaceList(in *sdnapiv1.NetNamespaceList, out *sdnapi.NetNamespaceList, s conversion.Scope) error {
@@ -4382,7 +4376,7 @@ func autoconvert_v1_NetNamespaceList_To_api_NetNamespaceList(in *sdnapiv1.NetNam
 	if in.Items != nil {
 		out.Items = make([]sdnapi.NetNamespace, len(in.Items))
 		for i := range in.Items {
-			if err := convert_v1_NetNamespace_To_api_NetNamespace(&in.Items[i], &out.Items[i], s); err != nil {
+			if err := s.Convert(&in.Items[i], &out.Items[i], 0); err != nil {
 				return err
 			}
 		}

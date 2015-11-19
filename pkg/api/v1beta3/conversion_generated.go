@@ -4196,12 +4196,8 @@ func autoconvert_api_NetNamespace_To_v1beta3_NetNamespace(in *sdnapi.NetNamespac
 		return err
 	}
 	out.NetName = in.NetName
-	out.NetID = in.NetID
+	// in.NetID has no peer in out
 	return nil
-}
-
-func convert_api_NetNamespace_To_v1beta3_NetNamespace(in *sdnapi.NetNamespace, out *sdnapiv1beta3.NetNamespace, s conversion.Scope) error {
-	return autoconvert_api_NetNamespace_To_v1beta3_NetNamespace(in, out, s)
 }
 
 func autoconvert_api_NetNamespaceList_To_v1beta3_NetNamespaceList(in *sdnapi.NetNamespaceList, out *sdnapiv1beta3.NetNamespaceList, s conversion.Scope) error {
@@ -4217,7 +4213,7 @@ func autoconvert_api_NetNamespaceList_To_v1beta3_NetNamespaceList(in *sdnapi.Net
 	if in.Items != nil {
 		out.Items = make([]sdnapiv1beta3.NetNamespace, len(in.Items))
 		for i := range in.Items {
-			if err := convert_api_NetNamespace_To_v1beta3_NetNamespace(&in.Items[i], &out.Items[i], s); err != nil {
+			if err := s.Convert(&in.Items[i], &out.Items[i], 0); err != nil {
 				return err
 			}
 		}
@@ -4336,12 +4332,10 @@ func autoconvert_v1beta3_NetNamespace_To_api_NetNamespace(in *sdnapiv1beta3.NetN
 		return err
 	}
 	out.NetName = in.NetName
-	out.NetID = in.NetID
+	if err := s.Convert(&in.NetID, &out.NetID, 0); err != nil {
+		return err
+	}
 	return nil
-}
-
-func convert_v1beta3_NetNamespace_To_api_NetNamespace(in *sdnapiv1beta3.NetNamespace, out *sdnapi.NetNamespace, s conversion.Scope) error {
-	return autoconvert_v1beta3_NetNamespace_To_api_NetNamespace(in, out, s)
 }
 
 func autoconvert_v1beta3_NetNamespaceList_To_api_NetNamespaceList(in *sdnapiv1beta3.NetNamespaceList, out *sdnapi.NetNamespaceList, s conversion.Scope) error {
@@ -4357,7 +4351,7 @@ func autoconvert_v1beta3_NetNamespaceList_To_api_NetNamespaceList(in *sdnapiv1be
 	if in.Items != nil {
 		out.Items = make([]sdnapi.NetNamespace, len(in.Items))
 		for i := range in.Items {
-			if err := convert_v1beta3_NetNamespace_To_api_NetNamespace(&in.Items[i], &out.Items[i], s); err != nil {
+			if err := s.Convert(&in.Items[i], &out.Items[i], 0); err != nil {
 				return err
 			}
 		}
