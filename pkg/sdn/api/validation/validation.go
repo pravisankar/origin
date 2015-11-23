@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"fmt"
 	"net"
 
 	"k8s.io/kubernetes/pkg/api/validation"
@@ -8,6 +9,7 @@ import (
 
 	oapi "github.com/openshift/origin/pkg/api"
 	sdnapi "github.com/openshift/origin/pkg/sdn/api"
+	"github.com/openshift/origin/pkg/sdn/registry/netnamespace/vnid"
 )
 
 // ValidateClusterNetwork tests if required fields in the ClusterNetwork are set.
@@ -108,8 +110,11 @@ func ValidateHostSubnetUpdate(obj *sdnapi.HostSubnet, old *sdnapi.HostSubnet) fi
 func ValidateNetNamespace(netnamespace *sdnapi.NetNamespace) field.ErrorList {
 	allErrs := validation.ValidateObjectMeta(&netnamespace.ObjectMeta, false, oapi.MinimalNameRequirements, field.NewPath("metadata"))
 
-	if netnamespace.NetID != nil && *netnamespace.NetID < 0 {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("netID"), netnamespace.NetID, "invalid Net ID: cannot be negative"))
+	if netnamespace.NetID != nil {
+		err := vnid.ValidVNID(*netnamespace.NetID)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(field.NewPath("netID"), netnamespace.NetID, fmt.Sprintf("invalid Net ID: %v", err)))
+		}
 	}
 	return allErrs
 }
