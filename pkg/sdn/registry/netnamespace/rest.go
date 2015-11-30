@@ -2,6 +2,7 @@ package netnamespace
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/golang/glog"
 	kapi "k8s.io/kubernetes/pkg/api"
@@ -27,6 +28,9 @@ type REST struct {
 	vnids    vnidallocator.Interface
 	// globalNamespaces are the namespaces that have access to all pods in the cluster and vice versa.
 	globalNamespaces []string
+
+	// lock guards the vnid allocate and release at the REST layer
+	lock sync.Mutex
 }
 
 // NewStorage returns a new REST.
@@ -129,9 +133,9 @@ func (rs *REST) Update(ctx kapi.Context, obj runtime.Object) (runtime.Object, bo
 	} else if *oldNetns.NetID == *netns.NetID {
 		changedNetID = false
 	} else if *netns.NetID != util.GlobalVNID {
-		err = rs.vnids.Allocate(*netns.NetID)
-		if err != vnidallocator.ErrAllocated {
-			return nil, false, fmt.Errorf("NetID %d is not allocated, you can only use existing NetID during update")
+		err = rs.checkNetID(netns)
+		if err != nil {
+			return nil, false, err
 		}
 	}
 
@@ -162,12 +166,18 @@ func (rs *REST) assignNetID(netns *api.NetNamespace) error {
 		netns.NetID = new(uint)
 		*netns.NetID = util.GlobalVNID
 	} else if netns.NetID != nil {
+		rs.lock.Lock()
+		defer rs.lock.Unlock()
+
 		// Try to respect the requested Net ID.
 		if err := rs.vnids.Allocate(*netns.NetID); err != nil {
 			el := fielderrors.ValidationErrorList{fielderrors.NewFieldInvalid("NetID", netns.NetID, err.Error())}
 			return errors.NewInvalid("NetNamespace", netns.Name, el)
 		}
 	} else {
+		rs.lock.Lock()
+		defer rs.lock.Unlock()
+
 		// Allocate next available.
 		vnid, err := rs.vnids.AllocateNext()
 		if err != nil {
@@ -185,6 +195,9 @@ func (rs *REST) revokeNetID(netns *api.NetNamespace) error {
 	if *netns.NetID == util.GlobalVNID {
 		return nil
 	}
+	// This ensures there is no Net ID allocation when we try to scan NetNamespace list and release Net ID if needed
+	rs.lock.Lock()
+	defer rs.lock.Unlock()
 
 	netnsCache, err := cache.GetNetNamespaceCache()
 	if err != nil {
@@ -202,6 +215,16 @@ func (rs *REST) revokeNetID(netns *api.NetNamespace) error {
 		}
 	}
 	return rs.vnids.Release(*netns.NetID)
+}
+
+func (rs *REST) checkNetID(netns *api.NetNamespace) error {
+	rs.lock.Lock()
+	defer rs.lock.Unlock()
+
+	if !rs.vnids.Has(*netns.NetID) {
+		return fmt.Errorf("NetID %d is not allocated, you can only use existing NetID during update", *netns.NetID)
+	}
+	return nil
 }
 
 // isGlobalNamespace returns true in these cases:
