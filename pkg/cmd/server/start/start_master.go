@@ -448,6 +448,7 @@ func startAPI(oc *origin.MasterConfig, kc *kubernetes.MasterConfig) error {
 	oc.RunGroupCache()
 	oc.RunPolicyCache()
 	oc.RunProjectCache()
+	oc.RunNetNamespaceCache()
 
 	unprotectedInstallers := []origin.APIInstaller{}
 
