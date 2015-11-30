@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/openshift-sdn/plugins/osdn/vnidallocator"
 	"github.com/openshift/origin/pkg/sdn/api"
 	"github.com/openshift/origin/pkg/sdn/api/validation"
+	"github.com/openshift/origin/pkg/sdn/registry/netnamespace/cache"
 )
 
 // REST adapts a netnamespace registry into apiserver's RESTStorage model.
@@ -185,13 +186,14 @@ func (rs *REST) revokeNetID(netns *api.NetNamespace) error {
 		return nil
 	}
 
-	netnsList, err := rs.registry.ListNetNamespaces(kapi.NewContext(), labels.Everything(), fields.Everything())
+	netnsCache, err := cache.GetNetNamespaceCache()
 	if err != nil {
 		return err
 	}
 
 	// Don't release if this netid is used by any other namespaces
-	for _, nn := range netnsList.Items {
+	for _, obj := range netnsCache.Store.List() {
+		nn := obj.(*api.NetNamespace)
 		if nn.ObjectMeta.UID == netns.ObjectMeta.UID {
 			continue
 		}
