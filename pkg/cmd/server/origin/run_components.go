@@ -36,6 +36,7 @@ import (
 	"github.com/openshift/origin/pkg/dns"
 	imagecontroller "github.com/openshift/origin/pkg/image/controller"
 	projectcontroller "github.com/openshift/origin/pkg/project/controller"
+	netnscache "github.com/openshift/origin/pkg/sdn/registry/netnamespace/cache"
 	securitycontroller "github.com/openshift/origin/pkg/security/controller"
 	"github.com/openshift/origin/pkg/security/mcs"
 	"github.com/openshift/origin/pkg/security/uid"
@@ -200,6 +201,15 @@ func (c *MasterConfig) RunDNSServer() {
 func (c *MasterConfig) RunProjectCache() {
 	glog.Infof("Using default project node label selector: %s", c.Options.ProjectConfig.DefaultNodeSelector)
 	c.ProjectCache.Run()
+}
+
+// RunNetNamespaceCache populates NetNamespace cache
+// Used by NetNamespace REST api and VNID repair controller when using multitenant network plugin.
+func (c *MasterConfig) RunNetNamespaceCache() {
+	if sdnfactory.IsMultitenantNetworkPlugin(c.Options.NetworkConfig.NetworkPluginName) {
+		osClient, _ := c.SDNControllerClients()
+		netnscache.RunNetNamespaceCache(osClient)
+	}
 }
 
 // RunBuildController starts the build sync loop for builds and buildConfig processing.
