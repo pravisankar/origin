@@ -18,12 +18,16 @@ import (
 	"k8s.io/kubernetes/pkg/controller/serviceaccount"
 	"k8s.io/kubernetes/pkg/master"
 	"k8s.io/kubernetes/pkg/registry/service"
+	"k8s.io/kubernetes/pkg/registry/service/allocator"
+	etcdallocator "k8s.io/kubernetes/pkg/registry/service/allocator/etcd"
 	"k8s.io/kubernetes/pkg/storage"
 	etcdstorage "k8s.io/kubernetes/pkg/storage/etcd"
 	kutilrand "k8s.io/kubernetes/pkg/util/rand"
 	"k8s.io/kubernetes/pkg/util/sets"
 
+	sdnfactory "github.com/openshift/openshift-sdn/plugins/osdn/factory"
 	sdnutil "github.com/openshift/openshift-sdn/plugins/osdn/util"
+	"github.com/openshift/openshift-sdn/plugins/osdn/vnidallocator"
 	"github.com/openshift/origin/pkg/api/latest"
 	"github.com/openshift/origin/pkg/auth/authenticator"
 	"github.com/openshift/origin/pkg/auth/authenticator/anonymous"
@@ -56,6 +60,7 @@ import (
 	accesstokenetcd "github.com/openshift/origin/pkg/oauth/registry/oauthaccesstoken/etcd"
 	projectauth "github.com/openshift/origin/pkg/project/auth"
 	"github.com/openshift/origin/pkg/sdn/registry/netnamespace"
+	netnamespaceetcd "github.com/openshift/origin/pkg/sdn/registry/netnamespace/etcd"
 	"github.com/openshift/origin/pkg/serviceaccounts"
 	usercache "github.com/openshift/origin/pkg/user/cache"
 	groupregistry "github.com/openshift/origin/pkg/user/registry/group"
@@ -135,13 +140,14 @@ type MasterConfig struct {
 	// PersistentVolumeControllerServiceAccount is the name of the service account in the infra namespace to use to run the persistent volume controller
 	PersistentVolumeControllerServiceAccount string
 	// MultitenantNetworkConfig provides default network configuration for multitenant network plugin
-	MultitenantNetworkConfig MultitenantNetworkConfig
+	MultitenantNetworkConfig *MultitenantNetworkConfig
 }
 
 type MultitenantNetworkConfig struct {
 	NetNamespaceRegistry netnamespace.Registry
 	NetIDRange           sdnutil.VNIDRange
 	NetIDRegistry        service.RangeRegistry
+	NetIDAllocator       *vnidallocator.Allocator
 }
 
 // BuildMasterConfig builds and returns the OpenShift master configuration based on the
@@ -240,9 +246,35 @@ func BuildMasterConfig(options configapi.MasterConfig) (*MasterConfig, error) {
 		JobControllerServiceAccount:              bootstrappolicy.InfraJobControllerServiceAccountName,
 		HPAControllerServiceAccount:              bootstrappolicy.InfraHPAControllerServiceAccountName,
 		PersistentVolumeControllerServiceAccount: bootstrappolicy.InfraPersistentVolumeControllerServiceAccountName,
+
+		MultitenantNetworkConfig: NewMultitenantNetworkConfig(options, etcdHelper),
 	}
 
 	return config, nil
+}
+
+func NewMultitenantNetworkConfig(options configapi.MasterConfig, etcdHelper storage.Interface) *MultitenantNetworkConfig {
+	if sdnfactory.IsMultitenantNetworkPlugin(options.NetworkConfig.NetworkPluginName) {
+		var netConfig MultitenantNetworkConfig
+
+		netNamespaceStorage := netnamespaceetcd.NewREST(etcdHelper)
+		netConfig.NetNamespaceRegistry = netnamespace.NewRegistry(netNamespaceStorage)
+
+		netIDRange, err := sdnutil.NewVNIDRange(sdnutil.MinVNID, sdnutil.MaxVNID-sdnutil.MinVNID+1)
+		if err != nil {
+			glog.Fatalf("Unable to create NetID range: %v", err)
+		}
+		netConfig.NetIDRange = *netIDRange
+
+		netConfig.NetIDAllocator = vnidallocator.NewAllocatorCustom(*netIDRange, func(max int, rangeSpec string) allocator.Interface {
+			mem := allocator.NewContiguousAllocationMap(max, rangeSpec)
+			etcd := etcdallocator.NewEtcd(mem, "/ranges/namespacevnids", "namespacevnidallocation", etcdHelper)
+			netConfig.NetIDRegistry = etcd
+			return etcd
+		})
+		return &netConfig
+	}
+	return nil
 }
 
 func newControllerPlug(options configapi.MasterConfig, client *etcdclient.Client) (plug.Plug, func()) {
