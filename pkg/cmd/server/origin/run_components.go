@@ -206,7 +206,7 @@ func (c *MasterConfig) RunProjectCache() {
 // RunNetNamespaceCache populates NetNamespace cache
 // Used by NetNamespace REST api and VNID repair controller when using multitenant network plugin.
 func (c *MasterConfig) RunNetNamespaceCache() {
-	if sdnfactory.IsMultitenantNetworkPlugin(c.Options.NetworkConfig.NetworkPluginName) {
+	if c.MultitenantNetworkConfig != nil {
 		osClient, _ := c.SDNControllerClients()
 		netnscache.RunNetNamespaceCache(osClient)
 	}
@@ -393,22 +393,19 @@ func (c *MasterConfig) RunImageImportController() {
 
 // RunNetIDAllocationController starts the VNID allocation controller process.
 func (c *MasterConfig) RunNetIDAllocationController() {
-	// NetID allocator is only required for multitenant network plugin
-	if !sdnfactory.IsMultitenantNetworkPlugin(c.Options.NetworkConfig.NetworkPluginName) {
-		return
-	}
+	if c.MultitenantNetworkConfig != nil {
+		// Run project cache if not running
+		if !c.ProjectCache.Running() {
+			c.RunProjectCache()
+		}
+		repair := vnidcontroller.NewRepair(15*time.Minute, c.MultitenantNetworkConfig.NetNamespaceRegistry, c.MultitenantNetworkConfig.NetIDRange, c.MultitenantNetworkConfig.NetIDRegistry, c.ProjectCache)
+		if err := repair.RunOnce(); err != nil {
+			glog.Fatalf("Unable to initialize netnamespace allocation: %v", err)
+		}
 
-	// Run project cache if not running
-	if !c.ProjectCache.Running() {
-		c.RunProjectCache()
+		runner := util.NewRunner(repair.RunUntil)
+		runner.Start()
 	}
-	repair := vnidcontroller.NewRepair(15*time.Minute, c.MultitenantNetworkConfig.NetNamespaceRegistry, c.MultitenantNetworkConfig.NetIDRange, c.MultitenantNetworkConfig.NetIDRegistry, c.ProjectCache)
-	if err := repair.RunOnce(); err != nil {
-		glog.Fatalf("Unable to initialize netnamespace allocation: %v", err)
-	}
-
-	runner := util.NewRunner(repair.RunUntil)
-	runner.Start()
 }
 
 // RunSecurityAllocationController starts the security allocation controller process.
