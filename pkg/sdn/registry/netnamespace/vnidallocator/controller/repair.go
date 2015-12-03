@@ -7,14 +7,14 @@ import (
 	"github.com/golang/glog"
 
 	kapi "k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/fields"
-	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/registry/service"
 	"k8s.io/kubernetes/pkg/util/runtime"
 	"k8s.io/kubernetes/pkg/util/wait"
 
 	projectcache "github.com/openshift/origin/pkg/project/cache"
+	sdnapi "github.com/openshift/origin/pkg/sdn/api"
 	"github.com/openshift/origin/pkg/sdn/registry/netnamespace"
+	netnscache "github.com/openshift/origin/pkg/sdn/registry/netnamespace/cache"
 	"github.com/openshift/origin/pkg/sdn/registry/netnamespace/vnid"
 	"github.com/openshift/origin/pkg/sdn/registry/netnamespace/vnidallocator"
 )
@@ -74,15 +74,16 @@ func (c *Repair) RunOnce() error {
 		return fmt.Errorf("unable to refresh the vnid block: %v", err)
 	}
 
-	// TODO: Currently we call this method every 15mins, maintain NetNamespace cache if needed
-	list, err := c.registry.ListNetNamespaces(kapi.NewContext(), labels.Everything(), fields.Everything())
+	netnsCache, err := netnscache.GetNetNamespaceCache()
 	if err != nil {
-		return fmt.Errorf("unable to list NetNamespace resource: %v", err)
+		return err
 	}
 
-	netnsMap := make(map[string]bool, len(list.Items))
-	netIDCountMap := make(map[uint]int, len(list.Items))
-	for _, netns := range list.Items {
+	netnsList := netnsCache.Store.List()
+	netnsMap := make(map[string]bool, len(netnsList))
+	netIDCountMap := make(map[uint]int, len(netnsList))
+	for _, obj := range netnsList {
+		netns := obj.(*sdnapi.NetNamespace)
 		netnsMap[netns.NetName] = true
 		netIDCountMap[*netns.NetID] += 1
 	}
@@ -110,7 +111,9 @@ func (c *Repair) RunOnce() error {
 	c.checkNetNsForProject = true
 
 	r := vnidallocator.NewInMemoryAllocator(c.vnidRange)
-	for _, netns := range list.Items {
+	for _, obj := range netnsList {
+		netns := obj.(*sdnapi.NetNamespace)
+
 		// Skip GlobalVNID as it is not part of the VNID allocation
 		if *netns.NetID == vnid.GlobalVNID {
 			continue
