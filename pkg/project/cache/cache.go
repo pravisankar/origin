@@ -54,6 +54,15 @@ func (p *ProjectCache) GetNamespace(name string) (*kapi.Namespace, error) {
 	return namespace, nil
 }
 
+func (p *ProjectCache) GetNamespaces() []*kapi.Namespace {
+	var namespaces []*kapi.Namespace
+
+	for _, ns := range p.Store.List() {
+		namespaces = append(namespaces, ns.(*kapi.Namespace))
+	}
+	return namespaces
+}
+
 func (p *ProjectCache) GetNodeSelector(namespace *kapi.Namespace) string {
 	selector := ""
 	found := false

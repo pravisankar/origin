@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang/glog"
+
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
@@ -11,26 +13,31 @@ import (
 	"k8s.io/kubernetes/pkg/util/runtime"
 	"k8s.io/kubernetes/pkg/util/wait"
 
+	projectcache "github.com/openshift/origin/pkg/project/cache"
 	"github.com/openshift/origin/pkg/sdn/registry/netnamespace"
 	"github.com/openshift/origin/pkg/sdn/registry/netnamespace/vnid"
 	"github.com/openshift/origin/pkg/sdn/registry/netnamespace/vnidallocator"
 )
 
 type Repair struct {
-	interval  time.Duration
-	registry  netnamespace.Registry
-	vnidRange vnid.VNIDRange
-	alloc     service.RangeRegistry
+	interval             time.Duration
+	registry             netnamespace.Registry
+	vnidRange            vnid.VNIDRange
+	alloc                service.RangeRegistry
+	projectCache         *projectcache.ProjectCache
+	checkNetNsForProject bool
 }
 
 // NewRepair creates a controller that periodically ensures that VNIDs are allocated for all namespaces
 // when using multitenant network plugin and generates informational warnings like VNID leaks, etc.
-func NewRepair(interval time.Duration, registry netnamespace.Registry, vnidRange vnid.VNIDRange, alloc service.RangeRegistry) *Repair {
+func NewRepair(interval time.Duration, registry netnamespace.Registry, vnidRange vnid.VNIDRange, alloc service.RangeRegistry, projectCache *projectcache.ProjectCache) *Repair {
 	return &Repair{
-		interval:  interval,
-		registry:  registry,
-		vnidRange: vnidRange,
-		alloc:     alloc,
+		interval:             interval,
+		registry:             registry,
+		vnidRange:            vnidRange,
+		alloc:                alloc,
+		projectCache:         projectCache,
+		checkNetNsForProject: false,
 	}
 }
 
@@ -67,15 +74,40 @@ func (c *Repair) RunOnce() error {
 		return fmt.Errorf("unable to refresh the vnid block: %v", err)
 	}
 
+	// TODO: Currently we call this method every 15mins, maintain NetNamespace cache if needed
 	list, err := c.registry.ListNetNamespaces(kapi.NewContext(), labels.Everything(), fields.Everything())
 	if err != nil {
 		return fmt.Errorf("unable to list NetNamespace resource: %v", err)
 	}
 
+	netnsMap := make(map[string]bool, len(list.Items))
 	netIDCountMap := make(map[uint]int, len(list.Items))
 	for _, netns := range list.Items {
+		netnsMap[netns.NetName] = true
 		netIDCountMap[*netns.NetID] += 1
 	}
+
+	// When the cluster admin switches from flat network plugin to multitenant plugin,
+	// NetNamespace object won't be present for the corresponding project as this controller
+	// is started before the multitenant VnidStartMaster().
+	// To avoid false errors, skip the check for the first iteration
+	if c.checkNetNsForProject {
+		// Validate every project has a corresponding netnamespace object
+		for _, namespace := range c.projectCache.GetNamespaces() {
+			if !netnsMap[namespace.ObjectMeta.Name] {
+				// There could be a race condition when the namesapce is created
+				// and netnamespace is not yet created but this repair controller
+				// tries to validate the netnamespace presence.
+				// To avoid this issue, log error only if the namespace is created a few mins ago.
+				// We expect NetNamespace resource to be created for the namespace
+				// when we start/restart multitenant network plugin.
+				if namespace.ObjectMeta.CreationTimestamp.Time.Add(5 * time.Minute).Before(time.Now()) {
+					glog.Errorf("NetNamespace resource not found for namespace: %s", namespace.ObjectMeta.Name)
+				}
+			}
+		}
+	}
+	c.checkNetNsForProject = true
 
 	r := vnidallocator.NewInMemoryAllocator(c.vnidRange)
 	for _, netns := range list.Items {

@@ -388,7 +388,11 @@ func (c *MasterConfig) RunNetIDAllocationController() {
 		return
 	}
 
-	repair := vnidcontroller.NewRepair(15*time.Minute, c.MultitenantNetworkConfig.NetNamespaceRegistry, c.MultitenantNetworkConfig.NetIDRange, c.MultitenantNetworkConfig.NetIDRegistry)
+	// Run project cache if not running
+	if !c.ProjectCache.Running() {
+		c.RunProjectCache()
+	}
+	repair := vnidcontroller.NewRepair(15*time.Minute, c.MultitenantNetworkConfig.NetNamespaceRegistry, c.MultitenantNetworkConfig.NetIDRange, c.MultitenantNetworkConfig.NetIDRegistry, c.ProjectCache)
 	if err := repair.RunOnce(); err != nil {
 		glog.Fatalf("Unable to initialize netnamespace allocation: %v", err)
 	}
