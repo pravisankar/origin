@@ -12,6 +12,8 @@ func init() {
 		&HostSubnetList{},
 		&NetNamespace{},
 		&NetNamespaceList{},
+		&ProjectNetwork{},
+		&ProjectNetworkList{},
 	)
 }
 
@@ -21,3 +23,5 @@ func (*HostSubnet) IsAnAPIObject()         {}
 func (*HostSubnetList) IsAnAPIObject()     {}
 func (*NetNamespace) IsAnAPIObject()       {}
 func (*NetNamespaceList) IsAnAPIObject()   {}
+func (*ProjectNetwork) IsAnAPIObject()     {}
+func (*ProjectNetworkList) IsAnAPIObject() {}
