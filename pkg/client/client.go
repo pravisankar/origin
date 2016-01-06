@@ -34,6 +34,7 @@ type Interface interface {
 	GroupsInterface
 	UserIdentityMappingsInterface
 	ProjectsInterface
+	ProjectNetworksInterface
 	ProjectRequestsInterface
 	LocalSubjectAccessReviewsImpersonator
 	SubjectAccessReviewsImpersonator
