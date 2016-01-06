@@ -25,4 +25,10 @@ func init() {
 	); err != nil {
 		panic(err)
 	}
+
+	if err := kapi.Scheme.AddFieldLabelConversionFunc("v1", "ProjectNetwork",
+		oapi.GetFieldLabelConversionFunc(newer.ProjectNetworkToSelectableFields(&newer.ProjectNetwork{}), nil),
+	); err != nil {
+		panic(err)
+	}
 }

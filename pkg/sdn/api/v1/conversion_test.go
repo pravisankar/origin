@@ -25,4 +25,8 @@ func TestFieldSelectorConversions(t *testing.T) {
 		api.NetNamespaceToSelectableFields(&api.NetNamespace{}),
 	)
 
+	testutil.CheckFieldLabelConversions(t, "v1", "ProjectNetwork",
+		// Ensure all currently returned labels are supported
+		api.ProjectNetworkToSelectableFields(&api.ProjectNetwork{}),
+	)
 }
