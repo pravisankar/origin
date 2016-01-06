@@ -225,6 +225,11 @@ func (c *Fake) Projects() client.ProjectInterface {
 	return &FakeProjects{Fake: c}
 }
 
+// ProjectNetworks provides a fake REST client for ProjectNetworks
+func (c *Fake) ProjectNetworks() client.ProjectNetworkInterface {
+	return &FakeProjectNetworks{Fake: c}
+}
+
 // ProjectRequests provides a fake REST client for ProjectRequests
 func (c *Fake) ProjectRequests() client.ProjectRequestInterface {
 	return &FakeProjectRequests{Fake: c}
