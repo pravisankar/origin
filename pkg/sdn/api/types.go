@@ -53,3 +53,15 @@ type NetNamespaceList struct {
 	unversioned.ListMeta
 	Items []NetNamespace
 }
+
+// ProjectNetwork is namespace scoped NetNamespace resource
+type ProjectNetwork struct {
+	NetNamespace
+}
+
+// ProjectNetworkList is a collection of ProjectNetworks
+type ProjectNetworkList struct {
+	unversioned.TypeMeta
+	unversioned.ListMeta
+	Items []ProjectNetwork
+}
