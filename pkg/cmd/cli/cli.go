@@ -13,6 +13,7 @@ import (
 
 	kubecmd "k8s.io/kubernetes/pkg/kubectl/cmd"
 
+	"github.com/openshift/openshift-sdn/pkg/cmd/cli/network"
 	"github.com/openshift/origin/pkg/cmd/cli/cmd"
 	"github.com/openshift/origin/pkg/cmd/cli/cmd/rsync"
 	"github.com/openshift/origin/pkg/cmd/cli/policy"
@@ -130,6 +131,7 @@ func NewCommandCLI(name, fullName string, in io.Reader, out, errout io.Writer) *
 				cmd.NewCmdExport(fullName, f, in, out),
 				cmd.NewCmdRun(fullName, f, in, out, errout),
 				cmd.NewCmdAttach(fullName, f, in, out, errout),
+				network.NewCmdPodNetwork(network.PodNetworkCommandName, fullName+" "+network.PodNetworkCommandName, f, out),
 				policy.NewCmdPolicy(policy.PolicyRecommendedName, fullName+" "+policy.PolicyRecommendedName, f, out),
 				secrets.NewCmdSecrets(secrets.SecretsRecommendedName, fullName+" "+secrets.SecretsRecommendedName, f, in, out, fullName+" edit"),
 				cmd.NewCmdConvert(fullName, f, out),
