@@ -22,3 +22,10 @@ func NetNamespaceToSelectableFields(obj *NetNamespace) fields.Set {
 		"metadata.name": obj.Name,
 	}
 }
+
+// ProjectNetworkToSelectableFields returns a label set that represents the object
+func ProjectNetworkToSelectableFields(obj *ProjectNetwork) fields.Set {
+	return fields.Set{
+		"metadata.name": obj.Name,
+	}
+}
