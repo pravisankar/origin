@@ -20,10 +20,4 @@ func TestFieldSelectorConversions(t *testing.T) {
 		// Ensure all currently returned labels are supported
 		api.HostSubnetToSelectableFields(&api.HostSubnet{}),
 	)
-
-	testutil.CheckFieldLabelConversions(t, "v1", "NetNamespace",
-		// Ensure all currently returned labels are supported
-		api.NetNamespaceToSelectableFields(&api.NetNamespace{}),
-	)
-
 }

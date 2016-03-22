@@ -652,10 +652,6 @@ func GetBootstrapClusterRoles() []authorizationapi.ClusterRole {
 				},
 				{
 					Verbs:     sets.NewString("get", "list", "watch"),
-					Resources: sets.NewString("netnamespaces"),
-				},
-				{
-					Verbs:     sets.NewString("get", "list", "watch"),
 					Resources: sets.NewString("nodes"),
 				},
 				{
@@ -677,10 +673,6 @@ func GetBootstrapClusterRoles() []authorizationapi.ClusterRole {
 				{
 					Verbs:     sets.NewString("get", "list", "watch", "create", "delete"),
 					Resources: sets.NewString("hostsubnets"),
-				},
-				{
-					Verbs:     sets.NewString("get", "list", "watch", "create", "delete"),
-					Resources: sets.NewString("netnamespaces"),
 				},
 				{
 					Verbs:     sets.NewString("get", "list", "watch"),

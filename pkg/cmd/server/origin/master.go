@@ -72,7 +72,6 @@ import (
 	routeetcd "github.com/openshift/origin/pkg/route/registry/route/etcd"
 	clusternetworketcd "github.com/openshift/origin/pkg/sdn/registry/clusternetwork/etcd"
 	hostsubnetetcd "github.com/openshift/origin/pkg/sdn/registry/hostsubnet/etcd"
-	netnamespaceetcd "github.com/openshift/origin/pkg/sdn/registry/netnamespace/etcd"
 	"github.com/openshift/origin/pkg/service"
 	templateregistry "github.com/openshift/origin/pkg/template/registry"
 	templateetcd "github.com/openshift/origin/pkg/template/registry/etcd"
@@ -379,7 +378,6 @@ func (c *MasterConfig) GetRestStorage() map[string]rest.Storage {
 
 	routeStorage, routeStatusStorage := routeetcd.NewREST(c.EtcdHelper, routeAllocator)
 	hostSubnetStorage := hostsubnetetcd.NewREST(c.EtcdHelper)
-	netNamespaceStorage := netnamespaceetcd.NewREST(c.EtcdHelper)
 	clusterNetworkStorage := clusternetworketcd.NewREST(c.EtcdHelper)
 
 	userStorage := useretcd.NewREST(c.EtcdHelper)
@@ -510,7 +508,6 @@ func (c *MasterConfig) GetRestStorage() map[string]rest.Storage {
 		"projectRequests": projectRequestStorage,
 
 		"hostSubnets":     hostSubnetStorage,
-		"netNamespaces":   netNamespaceStorage,
 		"clusterNetworks": clusterNetworkStorage,
 
 		"users":                userStorage,

@@ -51,24 +51,3 @@ type HostSubnetList struct {
 	// Items is the list of host subnets
 	Items []HostSubnet `json:"items"`
 }
-
-// NetNamespace encapsulates the inputs needed to define a unique network namespace on the cluster
-type NetNamespace struct {
-	unversioned.TypeMeta `json:",inline"`
-	// Standard object's metadata.
-	kapi.ObjectMeta `json:"metadata,omitempty"`
-
-	// NetName is the name of the network namespace
-	NetName string `json:"netname"`
-	// NetID is the network identifier of the network namespace assigned to each overlay network packet
-	NetID uint `json:"netid"`
-}
-
-// NetNamespaceList is a collection of NetNamespaces
-type NetNamespaceList struct {
-	unversioned.TypeMeta `json:",inline"`
-	// Standard object's metadata.
-	unversioned.ListMeta `json:"metadata,omitempty"`
-	// Items is the list of net namespaces
-	Items []NetNamespace `json:"items"`
-}

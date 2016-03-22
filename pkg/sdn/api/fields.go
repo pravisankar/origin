@@ -15,10 +15,3 @@ func HostSubnetToSelectableFields(obj *HostSubnet) fields.Set {
 		"metadata.name": obj.Name,
 	}
 }
-
-// NetNamespaceToSelectableFields returns a label set that represents the object
-func NetNamespaceToSelectableFields(obj *NetNamespace) fields.Set {
-	return fields.Set{
-		"metadata.name": obj.Name,
-	}
-}

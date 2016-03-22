@@ -103,17 +103,3 @@ func ValidateHostSubnetUpdate(obj *sdnapi.HostSubnet, old *sdnapi.HostSubnet) fi
 
 	return allErrs
 }
-
-// ValidateNetNamespace tests fields for a greater-than-zero NetID
-func ValidateNetNamespace(netnamespace *sdnapi.NetNamespace) field.ErrorList {
-	allErrs := validation.ValidateObjectMeta(&netnamespace.ObjectMeta, false, oapi.MinimalNameRequirements, field.NewPath("metadata"))
-
-	if netnamespace.NetID < 0 {
-		allErrs = append(allErrs, field.Invalid(field.NewPath("netID"), netnamespace.NetID, "invalid Net ID: cannot be negative"))
-	}
-	return allErrs
-}
-
-func ValidateNetNamespaceUpdate(obj *sdnapi.NetNamespace, old *sdnapi.NetNamespace) field.ErrorList {
-	return validation.ValidateObjectMetaUpdate(&obj.ObjectMeta, &old.ObjectMeta, field.NewPath("metadata"))
-}

@@ -30,7 +30,6 @@ type Interface interface {
 	DeploymentLogsNamespacer
 	RoutesNamespacer
 	HostSubnetsInterface
-	NetNamespacesInterface
 	ClusterNetworkingInterface
 	IdentitiesInterface
 	UsersInterface
@@ -120,11 +119,6 @@ func (c *Client) Routes(namespace string) RouteInterface {
 // HostSubnets provides a REST client for HostSubnet
 func (c *Client) HostSubnets() HostSubnetInterface {
 	return newHostSubnet(c)
-}
-
-// NetNamespaces provides a REST client for NetNamespace
-func (c *Client) NetNamespaces() NetNamespaceInterface {
-	return newNetNamespace(c)
 }
 
 // ClusterNetwork provides a REST client for ClusterNetworking

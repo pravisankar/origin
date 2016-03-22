@@ -19,10 +19,4 @@ func addConversionFuncs(scheme *runtime.Scheme) {
 	); err != nil {
 		panic(err)
 	}
-
-	if err := scheme.AddFieldLabelConversionFunc("v1", "NetNamespace",
-		oapi.GetFieldLabelConversionFunc(api.NetNamespaceToSelectableFields(&api.NetNamespace{}), nil),
-	); err != nil {
-		panic(err)
-	}
 }

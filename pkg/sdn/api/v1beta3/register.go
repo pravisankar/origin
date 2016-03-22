@@ -21,8 +21,6 @@ func addKnownTypes(scheme *runtime.Scheme) {
 		&ClusterNetworkList{},
 		&HostSubnet{},
 		&HostSubnetList{},
-		&NetNamespace{},
-		&NetNamespaceList{},
 	)
 }
 
@@ -30,5 +28,3 @@ func (obj *ClusterNetwork) GetObjectKind() unversioned.ObjectKind     { return &
 func (obj *ClusterNetworkList) GetObjectKind() unversioned.ObjectKind { return &obj.TypeMeta }
 func (obj *HostSubnet) GetObjectKind() unversioned.ObjectKind         { return &obj.TypeMeta }
 func (obj *HostSubnetList) GetObjectKind() unversioned.ObjectKind     { return &obj.TypeMeta }
-func (obj *NetNamespace) GetObjectKind() unversioned.ObjectKind       { return &obj.TypeMeta }
-func (obj *NetNamespaceList) GetObjectKind() unversioned.ObjectKind   { return &obj.TypeMeta }

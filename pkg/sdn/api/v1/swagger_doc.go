@@ -48,24 +48,3 @@ var map_HostSubnetList = map[string]string{
 func (HostSubnetList) SwaggerDoc() map[string]string {
 	return map_HostSubnetList
 }
-
-var map_NetNamespace = map[string]string{
-	"":         "NetNamespace encapsulates the inputs needed to define a unique network namespace on the cluster",
-	"metadata": "Standard object's metadata.",
-	"netname":  "NetName is the name of the network namespace",
-	"netid":    "NetID is the network identifier of the network namespace assigned to each overlay network packet",
-}
-
-func (NetNamespace) SwaggerDoc() map[string]string {
-	return map_NetNamespace
-}
-
-var map_NetNamespaceList = map[string]string{
-	"":         "NetNamespaceList is a collection of NetNamespaces",
-	"metadata": "Standard object's metadata.",
-	"items":    "Items is the list of net namespaces",
-}
-
-func (NetNamespaceList) SwaggerDoc() map[string]string {
-	return map_NetNamespaceList
-}
