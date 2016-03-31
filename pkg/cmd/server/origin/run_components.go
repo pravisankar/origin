@@ -352,7 +352,7 @@ func (c *MasterConfig) RunDeploymentImageChangeTriggerController() {
 // RunSDNController runs openshift-sdn if the said network plugin is provided
 func (c *MasterConfig) RunSDNController() {
 	oClient, kClient := c.SDNControllerClients()
-	controller, _, err := factory.NewPlugin(c.Options.NetworkConfig.NetworkPluginName, oClient, kClient, "", "")
+	controller, _, err := factory.NewPlugin(c.Options.NetworkConfig.NetworkPluginName, oClient, kClient, c.EtcdHelper, "", "")
 	if err != nil {
 		glog.Fatalf("SDN initialization failed: %v", err)
 	}
