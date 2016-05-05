@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/openshift-sdn/pkg/netid"
 	testexutil "github.com/openshift/origin/test/extended/util"
 	testutil "github.com/openshift/origin/test/util"
 
@@ -160,12 +161,10 @@ func pluginIsolatesNamespaces() bool {
 }
 
 func makeNamespaceGlobal(ns *api.Namespace) {
-	client, err := testutil.GetClusterAdminClient(testexutil.KubeConfigPath())
+	client, err := testutil.GetClusterAdminKubeClient(testexutil.KubeConfigPath())
 	expectNoError(err)
-	netns, err := client.NetNamespaces().Get(ns.Name)
-	expectNoError(err)
-	netns.NetID = 0
-	_, err = client.NetNamespaces().Update(netns)
+	netid.SetVNID(ns, 0)
+	_, err = client.Namespaces().Update(ns)
 	expectNoError(err)
 }
 
