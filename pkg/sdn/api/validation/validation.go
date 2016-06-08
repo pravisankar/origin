@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"fmt"
 	"net"
 
 	"k8s.io/kubernetes/pkg/api/validation"
@@ -13,6 +14,10 @@ import (
 // ValidateClusterNetwork tests if required fields in the ClusterNetwork are set.
 func ValidateClusterNetwork(clusterNet *sdnapi.ClusterNetwork) field.ErrorList {
 	allErrs := validation.ValidateObjectMeta(&clusterNet.ObjectMeta, false, oapi.MinimalNameRequirements, field.NewPath("metadata"))
+
+	if clusterNet.Name != sdnapi.ClusterNetworkDefault {
+		allErrs = append(allErrs, field.Invalid(field.NewPath("name"), clusterNet.Name, fmt.Sprintf("only cluster network %q is allowed", sdnapi.ClusterNetworkDefault)))
+	}
 
 	clusterIP, clusterIPNet, err := net.ParseCIDR(clusterNet.Network)
 	if err != nil {

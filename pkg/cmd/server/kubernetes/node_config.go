@@ -14,6 +14,7 @@ import (
 	kubeletapp "k8s.io/kubernetes/cmd/kubelet/app"
 	kubeletoptions "k8s.io/kubernetes/cmd/kubelet/app/options"
 	kapi "k8s.io/kubernetes/pkg/api"
+	kerrs "k8s.io/kubernetes/pkg/api/errors"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/componentconfig"
 	"k8s.io/kubernetes/pkg/client/cache"
@@ -36,6 +37,7 @@ import (
 	cmdflags "github.com/openshift/origin/pkg/cmd/util/flags"
 	"github.com/openshift/origin/pkg/cmd/util/variable"
 	"github.com/openshift/origin/pkg/dns"
+	sdnapi "github.com/openshift/origin/pkg/sdn/api"
 )
 
 // NodeConfig represents the required parameters to start the OpenShift node
@@ -132,6 +134,32 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig, enableProxy, enable
 	kubePort, err := strconv.Atoi(kubePortStr)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse node port: %v", err)
+	}
+
+	pluginName := options.NetworkConfig.NetworkPluginName
+	if sdnovs.IsOpenShiftNetworkPlugin(pluginName) {
+		// Detect any plugin mismatches between node and master
+		clusterNetwork, err := originClient.ClusterNetwork().Get(sdnapi.ClusterNetworkDefault)
+		if kerrs.IsNotFound(err) {
+			return nil, fmt.Errorf("detected network plugin mismatch between OpenShift node(%q) and master(non OpenShift network plugin)", pluginName)
+		} else if err != nil {
+			return nil, fmt.Errorf("cannot fetch %q cluster network: %v", sdnapi.ClusterNetworkDefault, err)
+		}
+
+		if clusterNetwork.PluginName != strings.ToLower(pluginName) {
+			if clusterNetwork.PluginName == "" {
+				// Do not return error in this case
+				glog.Warningf("either there is network plugin mismatch between OpenShift node(%q) and master or OpenShift master is running an older version where we did not persist plugin name", pluginName)
+			} else {
+				return nil, fmt.Errorf("detected network plugin mismatch between OpenShift node(%q) and master(%q)", pluginName, clusterNetwork.PluginName)
+			}
+		}
+	} else if pluginName == "" {
+		// Auto detect network plugin configured by master
+		clusterNetwork, err := originClient.ClusterNetwork().Get(sdnapi.ClusterNetworkDefault)
+		if err == nil {
+			options.NetworkConfig.NetworkPluginName = clusterNetwork.PluginName
+		}
 	}
 
 	// Defaults are tested in TestKubeletDefaults
