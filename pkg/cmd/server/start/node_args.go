@@ -16,7 +16,7 @@ import (
 	"k8s.io/kubernetes/pkg/util"
 	"k8s.io/kubernetes/pkg/util/sets"
 
-	"github.com/openshift/openshift-sdn/plugins/osdn/ovs"
+	sdnovs "github.com/openshift/openshift-sdn/plugins/osdn/ovs"
 
 	"github.com/openshift/origin/pkg/cmd/server/admin"
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
@@ -151,8 +151,7 @@ func ValidateRuntime(config *configapi.NodeConfig, components *utilflags.Compone
 		return fmt.Errorf("at least one node component must be enabled (%s)", strings.Join(components.Allowed().List(), ", "))
 	}
 
-	switch strings.ToLower(config.NetworkConfig.NetworkPluginName) {
-	case ovs.SingleTenantPluginName, ovs.MultiTenantPluginName:
+	if sdnovs.IsOpenShiftNetworkPlugin(config.NetworkConfig.NetworkPluginName) {
 		if actual.Has(ComponentKubelet) && !actual.Has(ComponentPlugins) {
 			return fmt.Errorf("the SDN plugin must be run in the same process as the kubelet")
 		}

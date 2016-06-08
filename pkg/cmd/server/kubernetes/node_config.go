@@ -27,8 +27,8 @@ import (
 	kerrors "k8s.io/kubernetes/pkg/util/errors"
 
 	osdnapi "github.com/openshift/openshift-sdn/plugins/osdn/api"
-	"github.com/openshift/openshift-sdn/plugins/osdn/factory"
-	"github.com/openshift/openshift-sdn/plugins/osdn/ovs"
+	sdnfactory "github.com/openshift/openshift-sdn/plugins/osdn/factory"
+	sdnovs "github.com/openshift/openshift-sdn/plugins/osdn/ovs"
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
 	"github.com/openshift/origin/pkg/cmd/server/crypto"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
@@ -166,8 +166,7 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig, enableProxy, enable
 		server.ResolverConfig = ""
 	}
 
-	switch server.NetworkPluginName {
-	case ovs.SingleTenantPluginName, ovs.MultiTenantPluginName:
+	if sdnovs.IsOpenShiftNetworkPlugin(server.NetworkPluginName) {
 		// set defaults for openshift-sdn
 		server.HairpinMode = componentconfig.HairpinNone
 		server.ConfigureCBR0 = false
@@ -271,7 +270,7 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig, enableProxy, enable
 	if err != nil {
 		return nil, fmt.Errorf("Cannot parse the provided ip-tables sync period (%s) : %v", options.IPTablesSyncPeriod, err)
 	}
-	sdnPlugin, err := factory.NewNodePlugin(options.NetworkConfig.NetworkPluginName, originClient, kubeClient, options.NodeName, options.NodeIP, iptablesSyncPeriod)
+	sdnPlugin, err := sdnfactory.NewNodePlugin(options.NetworkConfig.NetworkPluginName, originClient, kubeClient, options.NodeName, options.NodeIP, iptablesSyncPeriod)
 	if err != nil {
 		return nil, fmt.Errorf("SDN initialization failed: %v", err)
 	}
@@ -279,7 +278,7 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig, enableProxy, enable
 		cfg.NetworkPlugins = append(cfg.NetworkPlugins, sdnPlugin)
 	}
 
-	endpointFilter, err := factory.NewProxyPlugin(options.NetworkConfig.NetworkPluginName, originClient, kubeClient)
+	endpointFilter, err := sdnfactory.NewProxyPlugin(options.NetworkConfig.NetworkPluginName, originClient, kubeClient)
 	if err != nil {
 		return nil, fmt.Errorf("SDN proxy initialization failed: %v", err)
 	}

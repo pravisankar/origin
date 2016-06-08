@@ -89,6 +89,7 @@ import (
 	"github.com/openshift/origin/pkg/build/registry/buildclone"
 	"github.com/openshift/origin/pkg/build/registry/buildconfiginstantiate"
 
+	sdnovs "github.com/openshift/openshift-sdn/plugins/osdn/ovs"
 	clusterpolicyregistry "github.com/openshift/origin/pkg/authorization/registry/clusterpolicy"
 	clusterpolicystorage "github.com/openshift/origin/pkg/authorization/registry/clusterpolicy/etcd"
 	clusterpolicybindingregistry "github.com/openshift/origin/pkg/authorization/registry/clusterpolicybinding"
@@ -389,12 +390,6 @@ func (c *MasterConfig) GetRestStorage() map[string]rest.Storage {
 
 	routeStorage, routeStatusStorage, err := routeetcd.NewREST(c.RESTOptionsGetter, routeAllocator)
 	checkStorageErr(err)
-	hostSubnetStorage, err := hostsubnetetcd.NewREST(c.RESTOptionsGetter)
-	checkStorageErr(err)
-	netNamespaceStorage, err := netnamespaceetcd.NewREST(c.RESTOptionsGetter)
-	checkStorageErr(err)
-	clusterNetworkStorage, err := clusternetworketcd.NewREST(c.RESTOptionsGetter)
-	checkStorageErr(err)
 
 	userStorage, err := useretcd.NewREST(c.RESTOptionsGetter)
 	checkStorageErr(err)
@@ -551,10 +546,6 @@ func (c *MasterConfig) GetRestStorage() map[string]rest.Storage {
 		"projects":        projectStorage,
 		"projectRequests": projectRequestStorage,
 
-		"hostSubnets":     hostSubnetStorage,
-		"netNamespaces":   netNamespaceStorage,
-		"clusterNetworks": clusterNetworkStorage,
-
 		"users":                userStorage,
 		"groups":               groupStorage,
 		"identities":           identityStorage,
@@ -580,6 +571,23 @@ func (c *MasterConfig) GetRestStorage() map[string]rest.Storage {
 		"clusterPolicyBindings": clusterPolicyBindingStorage,
 		"clusterRoleBindings":   clusterRoleBindingStorage,
 		"clusterRoles":          clusterRoleStorage,
+	}
+
+	if sdnovs.IsOpenShiftNetworkPlugin(c.Options.NetworkConfig.NetworkPluginName) {
+		hostSubnetStorage, err := hostsubnetetcd.NewREST(c.RESTOptionsGetter)
+		checkStorageErr(err)
+		clusterNetworkStorage, err := clusternetworketcd.NewREST(c.RESTOptionsGetter)
+		checkStorageErr(err)
+
+		storage["hostSubnets"] = hostSubnetStorage
+		storage["clusterNetworks"] = clusterNetworkStorage
+
+		if sdnovs.IsOpenShiftMultitenantNetworkPlugin(c.Options.NetworkConfig.NetworkPluginName) {
+			netNamespaceStorage, err := netnamespaceetcd.NewREST(c.RESTOptionsGetter)
+			checkStorageErr(err)
+
+			storage["netNamespaces"] = netNamespaceStorage
+		}
 	}
 
 	if configapi.IsBuildEnabled(&c.Options) {
