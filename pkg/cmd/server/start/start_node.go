@@ -15,6 +15,7 @@ import (
 	kerrors "k8s.io/kubernetes/pkg/api/errors"
 	kcmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 
+	sdnovs "github.com/openshift/openshift-sdn/plugins/osdn/ovs"
 	"github.com/openshift/origin/pkg/cmd/server/admin"
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
 	configapilatest "github.com/openshift/origin/pkg/cmd/server/api/latest"
@@ -283,6 +284,12 @@ func StartNode(nodeConfig configapi.NodeConfig, components *utilflags.ComponentF
 	config, err := kubernetes.BuildKubernetesNodeConfig(nodeConfig, components.Enabled(ComponentProxy), components.Enabled(ComponentDNS))
 	if err != nil {
 		return err
+	}
+
+	if sdnovs.IsOpenShiftNetworkPlugin(config.KubeletServer.NetworkPluginName) {
+		if components.Enabled(ComponentKubelet) && !components.Enabled(ComponentPlugins) {
+			return fmt.Errorf("the SDN plugin must be run in the same process as the kubelet")
+		}
 	}
 
 	if components.Enabled(ComponentKubelet) {
