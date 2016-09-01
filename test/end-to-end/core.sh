@@ -567,5 +567,9 @@ os::cmd::expect_success_and_text "echo '${busybox_expected_size}:${busybox_calcu
 os::cmd::expect_success_and_text "echo '${busybox_expected_size}'" "${busybox_calculated_size}"
 echo "[INFO] Image size matches"
 
+echo "[INFO] Run network diagnostics"
+os::cmd::expect_success "oc project ${CLUSTER_ADMIN_CONTEXT}"
+os::cmd::expect_success "oadm diagnostics NetworkCheck"
+
 os::test::junit::declare_suite_end
 unset VERBOSE
