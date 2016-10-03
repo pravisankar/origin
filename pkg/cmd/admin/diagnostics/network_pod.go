@@ -40,7 +40,7 @@ log the results so that the calling diagnostic can report them.
 var (
 	// availableNetworkPodDiagnostics contains the names of network diagnostics that can be executed
 	// during a single run of diagnostics. Add more diagnostics to the list as they are defined.
-	availableNetworkPodDiagnostics = sets.NewString(networkdiag.CheckNodeNetworkName, networkdiag.CheckPodNetworkName, networkdiag.CheckExternalNetworkName, networkdiag.CheckServiceNetworkName)
+	availableNetworkPodDiagnostics = sets.NewString(networkdiag.CheckNodeNetworkName, networkdiag.CheckPodNetworkName, networkdiag.CheckExternalNetworkName, networkdiag.CheckServiceNetworkName, networkdiag.CollectNetworkInfoName)
 )
 
 // NewCommandNetworkPodDiagnostics is the command for running network diagnostics.
@@ -157,6 +157,12 @@ func (o NetworkPodDiagnosticsOptions) buildNetworkPodDiagnostics() ([]types.Diag
 
 		case networkdiag.CheckServiceNetworkName:
 			diagnostics = append(diagnostics, networkdiag.CheckServiceNetwork{
+				KubeClient: kubeClient,
+				OSClient:   osClient,
+			})
+
+		case networkdiag.CollectNetworkInfoName:
+			diagnostics = append(diagnostics, networkdiag.CollectNetworkInfo{
 				KubeClient: kubeClient,
 				OSClient:   osClient,
 			})
