@@ -11,8 +11,8 @@ import (
 	kexec "k8s.io/kubernetes/pkg/util/exec"
 
 	osclient "github.com/openshift/origin/pkg/client"
+	"github.com/openshift/origin/pkg/diagnostics/networkpod/util"
 	"github.com/openshift/origin/pkg/diagnostics/types"
-	"github.com/openshift/origin/pkg/diagnostics/util"
 	"github.com/openshift/origin/pkg/sdn/api"
 	sdnplugin "github.com/openshift/origin/pkg/sdn/plugin"
 	"github.com/openshift/origin/pkg/util/netutils"
