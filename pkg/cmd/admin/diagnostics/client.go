@@ -7,13 +7,14 @@ import (
 	"k8s.io/kubernetes/pkg/util/sets"
 
 	clientdiags "github.com/openshift/origin/pkg/diagnostics/client"
+	networkdiags "github.com/openshift/origin/pkg/diagnostics/network"
 	"github.com/openshift/origin/pkg/diagnostics/types"
 )
 
 var (
 	// availableClientDiagnostics contains the names of client diagnostics that can be executed
 	// during a single run of diagnostics. Add more diagnostics to the list as they are defined.
-	availableClientDiagnostics = sets.NewString(clientdiags.ConfigContextsName, clientdiags.DiagnosticPodName, clientdiags.NetworkDiagnosticName)
+	availableClientDiagnostics = sets.NewString(clientdiags.ConfigContextsName, clientdiags.DiagnosticPodName, networkdiags.NetworkDiagnosticName)
 )
 
 // buildClientDiagnostics builds client Diagnostic objects based on the rawConfig passed in.
@@ -52,8 +53,8 @@ func (o DiagnosticsOptions) buildClientDiagnostics(rawConfig *clientcmdapi.Confi
 				PreventModification: o.PreventModification,
 				ImageTemplate:       o.ImageTemplate,
 			})
-		case clientdiags.NetworkDiagnosticName:
-			diagnostics = append(diagnostics, &clientdiags.NetworkDiagnostic{
+		case networkdiags.NetworkDiagnosticName:
+			diagnostics = append(diagnostics, &networkdiags.NetworkDiagnostic{
 				KubeClient:          kubeClient,
 				OSClient:            osClient,
 				ClientFlags:         o.ClientFlags,
