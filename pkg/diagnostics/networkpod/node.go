@@ -8,8 +8,8 @@ import (
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
 	kexec "k8s.io/kubernetes/pkg/util/exec"
 
+	"github.com/openshift/origin/pkg/diagnostics/networkpod/util"
 	"github.com/openshift/origin/pkg/diagnostics/types"
-	"github.com/openshift/origin/pkg/diagnostics/util"
 	"github.com/openshift/origin/pkg/util/netutils"
 )
 
