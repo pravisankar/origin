@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
@@ -96,7 +97,7 @@ func (d *NetworkDiagnostic) CollectNetworkInfo(node *kapi.Node, podName string) 
 	tarHelper := tar.New()
 	tarHelper.SetExclusionPattern(nil)
 
-	tmp, err := ioutil.TempFile("", "rsync")
+	tmp, err := ioutil.TempFile("", "network-diags")
 	if err != nil {
 		d.res.Error("DNet", err, fmt.Sprintf("cannot create local temporary file for tar: %v", err))
 		return 1
@@ -108,7 +109,8 @@ func (d *NetworkDiagnostic) CollectNetworkInfo(node *kapi.Node, podName string) 
 	errBuf := &bytes.Buffer{}
 	// cmd := []string{"chroot", "/host", "cat", "/tmp/networklog.txt"}
 	//	cmd := []string{"cp", "-r", fmt.Sprintf("%s:%s", pod.Name, "/tmp/networklog.txt")}
-	cmd := []string{"chroot", "/host", "tar", "-C", "/tmp/sample", "-c", "."}
+	nodeLogDir := filepath.Join("/tmp/nodes", node.Name)
+	cmd := []string{"chroot", util.NetworkDiagnosticContainerMountPath, "tar", "-C", nodeLogDir, "-c", "."}
 	err = Execute(cmd, d.Factory, pod, nil, tmp, errBuf)
 	if err != nil {
 		d.res.Error("DNet", err, fmt.Sprintf("Creating remote tar locally failed: %v, %s", err, errBuf.String()))
