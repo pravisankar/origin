@@ -14,8 +14,6 @@ import (
 )
 
 const (
-	NetworkDiagnosticContainerMountPath = "/host"
-
 	busyboxImage = "docker.io/busybox"
 	pauseImage   = "docker.io/kubernetes/pause"
 
@@ -68,15 +66,15 @@ func GetNetworkDiagnosticsPod(podName, nodeName, image string, loglevel int) *ka
 					VolumeMounts: []kapi.VolumeMount{
 						{
 							Name:      hostRootVolName,
-							MountPath: NetworkDiagnosticContainerMountPath,
+							MountPath: util.NetworkDiagnosticContainerMountPath,
 						},
 						{
 							Name:      secretVolName,
-							MountPath: fmt.Sprintf("%s/%s", NetworkDiagnosticContainerMountPath, secretDirBaseName),
+							MountPath: fmt.Sprintf("%s/%s", util.NetworkDiagnosticContainerMountPath, secretDirBaseName),
 							ReadOnly:  true,
 						},
 					},
-					Command: []string{"chroot", NetworkDiagnosticContainerMountPath, "openshift", "infra", "network-diagnostic-pod", "-l", strconv.Itoa(loglevel)},
+					Command: []string{"chroot", util.NetworkDiagnosticContainerMountPath, "openshift", "infra", "network-diagnostic-pod", "-l", strconv.Itoa(loglevel)},
 				},
 			},
 			Volumes: []kapi.Volume{
@@ -140,10 +138,10 @@ func GetNetworkDiagnosticsPausePod(podName, nodeName, image string, loglevel int
 					VolumeMounts: []kapi.VolumeMount{
 						{
 							Name:      hostRootVolName,
-							MountPath: NetworkDiagnosticContainerMountPath,
+							MountPath: util.NetworkDiagnosticContainerMountPath,
 						},
 					},
-					Command: []string{"chroot", NetworkDiagnosticContainerMountPath, "sleep", "1000"},
+					Command: []string{"chroot", util.NetworkDiagnosticContainerMountPath, "sleep", "1000"},
 				},
 			},
 			Volumes: []kapi.Volume{
