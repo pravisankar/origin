@@ -3,21 +3,13 @@ package network
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 
-	kapi "k8s.io/kubernetes/pkg/api"
 	kclient "k8s.io/kubernetes/pkg/client/unversioned"
-	//	kexec "k8s.io/kubernetes/pkg/util/exec"
 
 	osclient "github.com/openshift/origin/pkg/client"
-	// "github.com/openshift/origin/pkg/diagnostics/client"
 	"github.com/openshift/origin/pkg/diagnostics/networkpod/util"
 	"github.com/openshift/origin/pkg/diagnostics/types"
-	// "github.com/openshift/origin/pkg/sdn/api"
-	sdnplugin "github.com/openshift/origin/pkg/sdn/plugin"
-	// "github.com/openshift/origin/pkg/util/netutils"
 )
 
 const (
@@ -54,59 +46,16 @@ func (d CollectNetworkInfo) CanRun() (bool, error) {
 func (d CollectNetworkInfo) Check() types.DiagnosticResult {
 	r := types.NewDiagnosticResult(CollectNetworkInfoName)
 
-	//path := fmt.Sprintf("%s/%s", client.NetworkDiagnosticContainerMountPath, "/tmp/networklog.txt")
-    if err := os.MkdirAll("/tmp/sample/empty", 0700); err != nil {
-		r.Error("E", err, fmt.Sprintf("Failed to create dir /tmp/sample/empty"))
-		return r
+	l := util.LogInterface{
+		Result:    r,
+		ChRootDir: util.NetworkDiagnosticContainerMountPath,
 	}
-	path := filepath.Join("/tmp/sample", "networklog.txt")
-
-	//path := fmt.Sprintf("%s", "/tmp/networklog.txt")
-	err := d.runAndLog(path, "echo", []string{"'Starting network collection...'"})
+	nodeName, _, err := util.GetLocalNode(d.KubeClient)
 	if err != nil {
-		r.Error("DColNet1001", err, fmt.Sprintf("Running cmd failed. Error: %s", err))
+		r.Error("DColNet1001", err, fmt.Sprintf("Fetching local node info failed: %s", err))
 		return r
 	}
-
-	pluginName, ok, err := util.GetOpenShiftNetworkPlugin(d.OSClient)
-	if err != nil {
-		r.Error("DColNet1001", err, fmt.Sprintf("Checking network plugin failed. Error: %s", err))
-		return r
-	}
-	if !ok {
-		r.Warn("DColNet1002", nil, fmt.Sprintf("Skipping pod connectivity test. Reason: Not using openshift network plugin."))
-		return r
-	}
-
-	var vnidMap map[string]uint32
-	if sdnplugin.IsOpenShiftMultitenantNetworkPlugin(pluginName) {
-		netnsList, err := d.OSClient.NetNamespaces().List(kapi.ListOptions{})
-		if err != nil {
-			r.Error("DColNet1004", err, fmt.Sprintf("Getting all network namespaces failed. Error: %s", err))
-			return r
-		}
-
-		vnidMap = map[string]uint32{}
-		for _, netns := range netnsList.Items {
-			vnidMap[netns.NetName] = netns.NetID
-		}
-	}
-
+	logdir := filepath.Join("/tmp/nodes", nodeName)
+	l.LogNode(logdir)
 	return r
-}
-
-func (d CollectNetworkInfo) runAndLog(outfile, cmdStr string, args []string) error {
-	out, err := os.OpenFile(outfile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	cmd := exec.Command(cmdStr, args...)
-	cmd.Stdout = out
-	cmd.Stderr = out
-	if err = cmd.Run(); err != nil {
-		return err
-	}
-	return nil
 }
