@@ -130,7 +130,7 @@ func (l *LogInterface) Run(cmd []string, outfile, logdir string) {
 	defer out.Close()
 
 	if len(l.ChRootDir) != 0 {
-		cmd = append([]string{"chroot", l.ChRootDir}, cmd...)
+		//		cmd = append([]string{"chroot", l.ChRootDir}, cmd...)
 	}
 	first := cmd[0]
 	rest := cmd[1:]
