@@ -10,6 +10,7 @@ import (
 	osclient "github.com/openshift/origin/pkg/client"
 	"github.com/openshift/origin/pkg/sdn/api"
 	sdnplugin "github.com/openshift/origin/pkg/sdn/plugin"
+	"github.com/openshift/origin/pkg/util/netutils"
 )
 
 const (
@@ -24,6 +25,8 @@ const (
 	NetworkDiagnosticTestPodName     = "network-diagnostic-test-pod"
 	NetworkDiagnosticTestServiceName = "network-diagnostic-test-service"
 	NetworkDiagnosticTestPodSelector = "network-diagnostic-pod-name"
+
+	NetworkDiagnosticContainerMountPath = "/host"
 )
 
 func GetOpenShiftNetworkPlugin(osClient *osclient.Client) (string, bool, error) {
@@ -74,4 +77,29 @@ func GetSchedulableNodes(kubeClient *kclient.Client) ([]kapi.Node, error) {
 		filteredNodes = append(filteredNodes, node)
 	}
 	return filteredNodes, nil
+}
+
+func GetLocalNode(kubeClient *kclient.Client) (string, string, error) {
+	nodeList, err := kubeClient.Nodes().List(kapi.ListOptions{})
+	if err != nil {
+		return "", "", err
+	}
+
+	_, hostIPs, err := netutils.GetHostIPNetworks(nil)
+	if err != nil {
+		return "", "", err
+	}
+	for _, node := range nodeList.Items {
+		if len(node.Status.Addresses) == 0 {
+			continue
+		}
+		for _, ip := range hostIPs {
+			for _, addr := range node.Status.Addresses {
+				if addr.Type == kapi.NodeInternalIP && ip.String() == addr.Address {
+					return node.Name, addr.Address, nil
+				}
+			}
+		}
+	}
+	return "", "", fmt.Errorf("unable to find local node IP")
 }
