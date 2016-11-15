@@ -44,6 +44,9 @@ type DiagnosticsOptions struct {
 	PreventModification bool
 	// Path to store network diagnostic results in case of errors
 	NetworkDiagLogDir string
+	// Setting this option will pull the openshift image for network diagnostics instead of reusing the existing binary on the node.
+	// This is an expensive operation, so only recommended in case of issues due to reusing openshift binary on the node.
+	NetworkDiagUseOpenShiftImage bool
 	// We need a factory for creating clients. Creating a factory
 	// creates flags as a byproduct, most of which we don't want.
 	// The command creates these and binds only the flags we want.
@@ -133,6 +136,7 @@ func NewCmdDiagnostics(name string, fullName string, out io.Writer) *cobra.Comma
 	cmd.Flags().BoolVar(&o.ImageTemplate.Latest, options.FlagLatestImageName, false, "When expanding the image template, use latest version, not release version")
 	cmd.Flags().BoolVar(&o.PreventModification, options.FlagPreventModificationName, false, "May be set to prevent diagnostics making any changes via the API")
 	cmd.Flags().StringVar(&o.NetworkDiagLogDir, options.FlagNetworkDiagLogDir, netutil.NetworkDiagDefaultLogDir, "Path to store network diagnostic results in case of errors")
+	cmd.Flags().BoolVar(&o.NetworkDiagUseOpenShiftImage, options.FlagNetworkDiagUseOpenShiftImage, false, "Pulls openshift image for network diagnostics instead of reusing the existing binary on the node.")
 	flagtypes.GLog(cmd.Flags())
 	options.BindLoggerOptionFlags(cmd.Flags(), o.LogOptions, options.RecommendedLoggerOptionFlags())
 

@@ -33,6 +33,7 @@ type NetworkDiagnostic struct {
 	Factory             *osclientcmd.Factory
 	PreventModification bool
 	LogDir              string
+	UseOpenShiftImage   bool
 
 	pluginName    string
 	nodes         []kapi.Node
@@ -100,6 +101,21 @@ func (d *NetworkDiagnostic) Check() types.DiagnosticResult {
 	return d.res
 }
 
+func (d *NetworkDiagnostic) getCommand(c []string) []string {
+	cmd := []string{}
+	if len(c) == 0 {
+		return cmd
+	}
+
+	if d.UseOpenShiftImage {
+		cmd = c
+	} else {
+		cmd = append(cmd, []string{"chroot", util.NetworkDiagContainerMountPath}...)
+		cmd = append(cmd, c...)
+	}
+	return cmd
+}
+
 func (d *NetworkDiagnostic) runNetworkDiagnostic() {
 	// Do clean up if there is an interrupt/terminate signal while running network diagnostics
 	c := make(chan os.Signal, 2)
@@ -125,8 +141,8 @@ func (d *NetworkDiagnostic) runNetworkDiagnostic() {
 	}
 
 	// TEST Phase: Run network diagnostic pod on all valid nodes in parallel
-	command := []string{"chroot", util.NetworkDiagContainerMountPath, "openshift", "infra", "network-diagnostic-pod", "-l", strconv.Itoa(loglevel)}
-	if err := d.runNetworkPod(command); err != nil {
+	command := d.getCommand([]string{"openshift", "infra", "network-diagnostic-pod", "-l", strconv.Itoa(loglevel)})
+	if err := d.runPod(command, true); err != nil {
 		d.res.Error("DNet2006", err, err.Error())
 		return
 	}
@@ -142,9 +158,8 @@ func (d *NetworkDiagnostic) runNetworkDiagnostic() {
 		diagsFailed = true
 	}
 
-	// Collection Phase: Run network diagnostic pod on all valid nodes
-	command = []string{"chroot", util.NetworkDiagContainerMountPath, "sleep", "1000"}
-	if err := d.runNetworkPod(command); err != nil {
+	// Collection Phase: Run privileged pod on all valid nodes
+	if err := d.runPod([]string{"sleep", "1000"}, false); err != nil {
 		d.res.Error("DNet2009", err, err.Error())
 		return
 	}
@@ -165,16 +180,22 @@ func (d *NetworkDiagnostic) runNetworkDiagnostic() {
 	return
 }
 
-func (d *NetworkDiagnostic) runNetworkPod(command []string) error {
+func (d *NetworkDiagnostic) runPod(command []string, networkDiag bool) error {
 	for _, node := range d.nodes {
 		podName := kapi.SimpleNameGenerator.GenerateName(fmt.Sprintf("%s-", util.NetworkDiagPodNamePrefix))
 
-		pod := GetNetworkDiagnosticsPod(command, podName, node.Name)
+		var pod *kapi.Pod
+		if networkDiag {
+			pod = GetNetworkDiagnosticsPod(command, podName, node.Name, d.UseOpenShiftImage)
+		} else {
+			pod = GetPrivilegedPod(command, podName, node.Name)
+		}
+
 		_, err := d.KubeClient.Pods(d.nsName1).Create(pod)
 		if err != nil {
-			return fmt.Errorf("Creating network diagnostic pod %q on node %q with command %q failed: %v", podName, node.Name, strings.Join(command, " "), err)
+			return fmt.Errorf("Creating pod %q on node %q with command %q failed: %v", podName, node.Name, strings.Join(command, " "), err)
 		}
-		d.res.Debug("DNet2013", fmt.Sprintf("Created network diagnostic pod %q on node %q with command: %q", podName, node.Name, strings.Join(command, " ")))
+		d.res.Debug("DNet2013", fmt.Sprintf("Created pod %q on node %q with command: %q", podName, node.Name, strings.Join(command, " ")))
 	}
 	return nil
 }

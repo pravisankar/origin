@@ -97,6 +97,10 @@ func (d *NetworkDiagnostic) waitForNetworkPod(nsName, prefix string, validPhases
 		Duration: 500 * time.Millisecond,
 		Factor:   1.1,
 	}
+	// Pulling origin image may take more time
+	if d.UseOpenShiftImage {
+		backoff.Steps = 60
+	}
 
 	return wait.ExponentialBackoff(backoff, func() (bool, error) {
 		podList, err := d.getPodList(nsName, prefix)

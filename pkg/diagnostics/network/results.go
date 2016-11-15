@@ -76,7 +76,7 @@ func (d *NetworkDiagnostic) copyNetworkPodInfo(pod *kapi.Pod) error {
 	// Tar logdir on the remote node and copy to a local temporary file
 	errBuf := &bytes.Buffer{}
 	nodeLogDir := filepath.Join(util.NetworkDiagDefaultLogDir, util.NetworkDiagNodeLogDirPrefix, pod.Spec.NodeName)
-	cmd := []string{"chroot", util.NetworkDiagContainerMountPath, "tar", "-C", nodeLogDir, "-c", "."}
+	cmd := []string{"tar", "-C", nodeLogDir, "-c", "."}
 	if err = util.Execute(d.Factory, cmd, pod, nil, tmp, errBuf); err != nil {
 		return fmt.Errorf("Creating remote tar locally failed: %v, %s", err, errBuf.String())
 	}
@@ -110,7 +110,7 @@ func (d *NetworkDiagnostic) deleteRemoteNodeInfo(pod *kapi.Pod) error {
 
 	errBuf := &bytes.Buffer{}
 	nodeLogDir := filepath.Join(util.NetworkDiagDefaultLogDir, util.NetworkDiagNodeLogDirPrefix, pod.Spec.NodeName)
-	cmd := []string{"chroot", util.NetworkDiagContainerMountPath, "sh", "-c", fmt.Sprintf("shopt -s dotglob && rm -rf %s", nodeLogDir)}
+	cmd := []string{"sh", "-c", fmt.Sprintf("umount %s && rm -rf %s", nodeLogDir, nodeLogDir)}
 	if err = util.Execute(d.Factory, cmd, pod, nil, tmp, errBuf); err != nil {
 		return fmt.Errorf("Deleting remote logdir %q on node %q failed: %v, %s", nodeLogDir, pod.Spec.NodeName, err, errBuf.String())
 	}

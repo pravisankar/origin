@@ -53,5 +53,7 @@ const (
 	FlagImageTemplateName       = "images"
 	FlagLatestImageName         = "latest-images"
 	FlagPreventModificationName = "prevent-modification"
-	FlagNetworkDiagLogDir       = "network-logdir"
+
+	FlagNetworkDiagLogDir            = "network-logdir"
+	FlagNetworkDiagUseOpenShiftImage = "network-os-image"
 )
