@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 
 	flag "github.com/spf13/pflag"
@@ -125,7 +124,7 @@ func (d *NetworkDiagnostic) runNetworkDiagnostic() {
 	}
 
 	// TEST Phase: Run network diagnostic pod on all valid nodes in parallel
-	command := []string{"chroot", util.NetworkDiagContainerMountPath, "openshift", "infra", "network-diagnostic-pod", "-l", strconv.Itoa(loglevel)}
+	command := fmt.Sprintf("openshift infra network-diagnostic-pod -l %s", strconv.Itoa(loglevel))
 	if err := d.runNetworkPod(command); err != nil {
 		d.res.Error("DNet2006", err, err.Error())
 		return
@@ -143,7 +142,7 @@ func (d *NetworkDiagnostic) runNetworkDiagnostic() {
 	}
 
 	// Collection Phase: Run network diagnostic pod on all valid nodes
-	command = []string{"chroot", util.NetworkDiagContainerMountPath, "sleep", "1000"}
+	command = "sleep 1000"
 	if err := d.runNetworkPod(command); err != nil {
 		d.res.Error("DNet2009", err, err.Error())
 		return
@@ -165,16 +164,16 @@ func (d *NetworkDiagnostic) runNetworkDiagnostic() {
 	return
 }
 
-func (d *NetworkDiagnostic) runNetworkPod(command []string) error {
+func (d *NetworkDiagnostic) runNetworkPod(command string) error {
 	for _, node := range d.nodes {
 		podName := kapi.SimpleNameGenerator.GenerateName(fmt.Sprintf("%s-", util.NetworkDiagPodNamePrefix))
 
 		pod := GetNetworkDiagnosticsPod(command, podName, node.Name)
 		_, err := d.KubeClient.Core().Pods(d.nsName1).Create(pod)
 		if err != nil {
-			return fmt.Errorf("Creating network diagnostic pod %q on node %q with command %q failed: %v", podName, node.Name, strings.Join(command, " "), err)
+			return fmt.Errorf("Creating network diagnostic pod %q on node %q with command %q failed: %v", podName, node.Name, command, err)
 		}
-		d.res.Debug("DNet2013", fmt.Sprintf("Created network diagnostic pod %q on node %q with command: %q", podName, node.Name, strings.Join(command, " ")))
+		d.res.Debug("DNet2013", fmt.Sprintf("Created network diagnostic pod %q on node %q with command: %q", podName, node.Name, command))
 	}
 	return nil
 }
