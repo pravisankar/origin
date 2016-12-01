@@ -93,6 +93,7 @@ function image {
 # images that depend on scratch / centos
 image openshift/origin-pod                   images/pod
 image openshift/openvswitch                  images/openvswitch
+image openshift/diagnostics-deployer         images/diagnostics
 # images that depend on openshift/origin-base
 image openshift/origin                       images/origin
 image openshift/origin-haproxy-router        images/router/haproxy
