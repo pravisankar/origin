@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -25,12 +26,15 @@ func (plugin *OsdnNode) SetupEgressNetworkPolicy() error {
 			continue
 		}
 		plugin.egressPolicies[vnid] = append(plugin.egressPolicies[vnid], policy)
+
+		plugin.egressDNS.Add(policy)
 	}
 
 	for vnid := range plugin.egressPolicies {
 		plugin.updateEgressNetworkPolicyRules(vnid)
 	}
 
+	go utilwait.Forever(plugin.syncEgressDNSPolicyRules, 0)
 	go utilwait.Forever(plugin.watchEgressNetworkPolicies, 0)
 	return nil
 }
@@ -44,6 +48,9 @@ func (plugin *OsdnNode) watchEgressNetworkPolicies() {
 			return fmt.Errorf("could not find netid for namespace %q: %v", policy.Namespace, err)
 		}
 
+		plugin.egressPoliciesLock.Lock()
+		defer plugin.egressPoliciesLock.Unlock()
+
 		policies := plugin.egressPolicies[vnid]
 		for i, oldPolicy := range policies {
 			if oldPolicy.UID == policy.UID {
@@ -51,8 +58,11 @@ func (plugin *OsdnNode) watchEgressNetworkPolicies() {
 				break
 			}
 		}
+		plugin.egressDNS.Delete(*policy)
+
 		if delta.Type != cache.Deleted && len(policy.Spec.Egress) > 0 {
 			policies = append(policies, *policy)
+			plugin.egressDNS.Add(*policy)
 		}
 		plugin.egressPolicies[vnid] = policies
 
@@ -63,6 +73,9 @@ func (plugin *OsdnNode) watchEgressNetworkPolicies() {
 
 func (plugin *OsdnNode) UpdateEgressNetworkPolicyVNID(namespace string, oldVnid, newVnid uint32) {
 	var policy *osapi.EgressNetworkPolicy
+
+	plugin.egressPoliciesLock.Lock()
+	defer plugin.egressPoliciesLock.Unlock()
 
 	policies := plugin.egressPolicies[oldVnid]
 	for i, oldPolicy := range policies {
@@ -77,5 +90,46 @@ func (plugin *OsdnNode) UpdateEgressNetworkPolicyVNID(namespace string, oldVnid,
 	if policy != nil {
 		plugin.egressPolicies[newVnid] = append(plugin.egressPolicies[newVnid], *policy)
 		plugin.updateEgressNetworkPolicyRules(newVnid)
+	}
+}
+
+func (plugin *OsdnNode) syncEgressDNSPolicyRules() {
+	t := time.NewTicker(30 * time.Minute)
+	defer t.Stop()
+
+	for {
+		<-t.C
+		glog.V(5).Infof("periodic egress dns sync: update policy rules")
+
+		policies, err := plugin.osClient.EgressNetworkPolicies(kapi.NamespaceAll).List(kapi.ListOptions{})
+		if err != nil {
+			glog.Errorf("could not get EgressNetworkPolicies: %v", err)
+			continue
+		}
+
+		for _, policy := range policies.Items {
+			dnsInfo, ok := plugin.egressDNS.pdMap[policy.UID]
+			if !ok {
+				continue
+			}
+
+			changed, err := dnsInfo.Update()
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
+
+			if changed {
+				vnid, err := plugin.policy.GetVNID(policy.Namespace)
+				if err != nil {
+					glog.Warningf("could not find netid for namespace %q: %v", policy.Namespace, err)
+					break
+				}
+
+				plugin.egressPoliciesLock.Lock()
+				defer plugin.egressPoliciesLock.Unlock()
+				plugin.updateEgressNetworkPolicyRules(vnid)
+			}
+		}
 	}
 }

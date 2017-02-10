@@ -406,14 +406,26 @@ func (plugin *OsdnNode) updateEgressNetworkPolicyRules(vnid uint32) {
 				action = "drop"
 			}
 
-			var dst string
-			if rule.To.CIDRSelector == "0.0.0.0/0" {
-				dst = ""
-			} else {
-				dst = fmt.Sprintf(", nw_dst=%s", rule.To.CIDRSelector)
+			var selectors []string
+			if len(rule.To.CIDRSelector) > 0 {
+				selectors = append(selectors, rule.To.CIDRSelector)
+			} else if len(rule.To.DNSName) > 0 {
+				ips := plugin.egressDNS.GetIPs(policies[0], rule.To.DNSName)
+				for _, ip := range ips {
+					selectors = append(selectors, ip.String())
+				}
 			}
 
-			otx.AddFlow("table=100, reg0=%d, priority=%d, ip%s, actions=%s", vnid, priority, dst, action)
+			for _, selector := range selectors {
+				var dst string
+				if selector == "0.0.0.0/0" {
+					dst = ""
+				} else {
+					dst = fmt.Sprintf(", nw_dst=%s", selector)
+				}
+
+				otx.AddFlow("table=100, reg0=%d, priority=%d, ip%s, actions=%s", vnid, priority, dst, action)
+			}
 		}
 		otx.DeleteFlows("table=100, reg0=%d, cookie=1/1", vnid)
 	}
