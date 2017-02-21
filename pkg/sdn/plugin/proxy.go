@@ -14,12 +14,23 @@ import (
 	"k8s.io/kubernetes/pkg/client/cache"
 	kclientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	pconfig "k8s.io/kubernetes/pkg/proxy/config"
+	ktypes "k8s.io/kubernetes/pkg/types"
 	utilwait "k8s.io/kubernetes/pkg/util/wait"
 )
 
+type firewallItem struct {
+	ruleType osapi.EgressNetworkPolicyRuleType
+	net      *net.IPNet
+}
+
+type policyFirewallItem struct {
+	uid      ktypes.UID
+	firewall []firewallItem
+}
+
 type proxyFirewallItem struct {
-	policy osapi.EgressNetworkPolicyRuleType
-	net    *net.IPNet
+	namespaceFirewalls []policyFirewallItem
+	activeFirewall     *policyFirewallItem
 }
 
 type OsdnProxy struct {
@@ -29,7 +40,7 @@ type OsdnProxy struct {
 	baseEndpointsHandler pconfig.EndpointsConfigHandler
 
 	lock         sync.Mutex
-	firewall     map[string][]proxyFirewallItem
+	firewall     map[string]*proxyFirewallItem
 	allEndpoints []kapi.Endpoints
 }
 
@@ -42,7 +53,7 @@ func NewProxyPlugin(pluginName string, osClient *osclient.Client, kClient *kclie
 	return &OsdnProxy{
 		kClient:  kClient,
 		osClient: osClient,
-		firewall: make(map[string][]proxyFirewallItem),
+		firewall: make(map[string]*proxyFirewallItem),
 	}, nil
 }
 
@@ -61,7 +72,7 @@ func (proxy *OsdnProxy) Start(baseHandler pconfig.EndpointsConfigHandler) error 
 		return fmt.Errorf("Could not get EgressNetworkPolicies: %s", err)
 	}
 	for _, policy := range policies.Items {
-		proxy.updateNetworkPolicy(policy)
+		proxy.updateEgressNetworkPolicy(policy)
 	}
 
 	go utilwait.Forever(proxy.watchEgressNetworkPolicies, 0)
@@ -78,7 +89,7 @@ func (proxy *OsdnProxy) watchEgressNetworkPolicies() {
 		func() {
 			proxy.lock.Lock()
 			defer proxy.lock.Unlock()
-			proxy.updateNetworkPolicy(*policy)
+			proxy.updateEgressNetworkPolicy(*policy)
 			if proxy.allEndpoints != nil {
 				proxy.updateEndpoints()
 			}
@@ -87,29 +98,68 @@ func (proxy *OsdnProxy) watchEgressNetworkPolicies() {
 	})
 }
 
-func (proxy *OsdnProxy) updateNetworkPolicy(policy osapi.EgressNetworkPolicy) {
-	firewall := make([]proxyFirewallItem, len(policy.Spec.Egress))
+func (proxy *OsdnProxy) updateEgressNetworkPolicy(policy osapi.EgressNetworkPolicy) {
+	firewall := make([]firewallItem, len(policy.Spec.Egress))
 	for i, rule := range policy.Spec.Egress {
 		_, cidr, err := net.ParseCIDR(rule.To.CIDRSelector)
 		if err != nil {
 			// should have been caught by validation
-			glog.Errorf("Illegal CIDR value %q in EgressNetworkPolicy rule", rule.To.CIDRSelector)
+			glog.Errorf("Illegal CIDR value %q in EgressNetworkPolicy rule for policy: %v", rule.To.CIDRSelector, policy.UID)
 			return
 		}
-		firewall[i] = proxyFirewallItem{rule.Type, cidr}
+		firewall[i] = firewallItem{rule.Type, cidr}
 	}
 
+	// Add/Update/Delete firwall rules for the namespace
+	ns := policy.Namespace
 	if len(firewall) > 0 {
-		proxy.firewall[policy.Namespace] = firewall
+		updated := false
+		if ref, ok := proxy.firewall[ns]; ok {
+			for i, item := range ref.namespaceFirewalls {
+				if item.uid == policy.UID {
+					proxy.firewall[ns].namespaceFirewalls[i].firewall = firewall
+					updated = true
+					break
+				}
+			}
+		}
+		if !updated {
+			if _, ok := proxy.firewall[ns]; !ok {
+				proxy.firewall[ns] = &proxyFirewallItem{}
+			}
+			policyFirewall := policyFirewallItem{uid: policy.UID, firewall: firewall}
+			proxy.firewall[ns].namespaceFirewalls = append(proxy.firewall[ns].namespaceFirewalls, policyFirewall)
+		}
 	} else {
-		delete(proxy.firewall, policy.Namespace)
+		if ref, ok := proxy.firewall[ns]; ok {
+			for i, item := range ref.namespaceFirewalls {
+				if item.uid == policy.UID {
+					proxy.firewall[ns].namespaceFirewalls = append(proxy.firewall[ns].namespaceFirewalls[:i], proxy.firewall[ns].namespaceFirewalls[i+1:]...)
+				}
+			}
+		}
+	}
+
+	// Set active firewall for the namespace
+	if len(proxy.firewall[ns].namespaceFirewalls) == 1 {
+		proxy.firewall[ns].activeFirewall = &proxy.firewall[ns].namespaceFirewalls[0]
+	} else {
+		// We only allow one policy per namespace otherwise it's hard to determine which policy to apply first
+		glog.Errorf("found multiple egress policies, dropping all firewall rules for namespace: %s", ns)
+		proxy.firewall[ns].activeFirewall = nil
 	}
 }
 
 func (proxy *OsdnProxy) firewallBlocksIP(namespace string, ip net.IP) bool {
-	for _, item := range proxy.firewall[namespace] {
-		if item.net.Contains(ip) {
-			return item.policy == osapi.EgressNetworkPolicyRuleDeny
+	if ref, ok := proxy.firewall[namespace]; ok {
+		if ref.activeFirewall == nil {
+			return false
+		}
+
+		for _, item := range ref.activeFirewall.firewall {
+			if item.net.Contains(ip) {
+				return item.ruleType == osapi.EgressNetworkPolicyRuleDeny
+			}
 		}
 	}
 	return false
