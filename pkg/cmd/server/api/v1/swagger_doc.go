@@ -544,6 +544,8 @@ var map_NodeConfig = map[string]string{
 	"nodeIP":                          "Deprecated and maintained for backward compatibility, use podTrafficNodeIP instead",
 	"podTrafficNodeInterface":         "Network interface on the node to be used for pod traffic",
 	"podTrafficNodeIP":                "Node may have multiple IPs, specify the IP to use for pod traffic routing If podTrafficNodeIP is not set and podTrafficNodeInterface is set, then first IPv4 addr from podTrafficNodeInterface is used. If podTrafficNodeIP and podTrafficNodeInterface is not set, then network parse/lookup on the nodeName is performed and the first non-loopback address is used",
+	"masterTrafficNodeInterface":      "Network interface on the node to be used for traffic between master and node",
+	"masterTrafficNodeIP":             "Node may have multiple IPs, specify the IP to use for traffic between master and node If masterTrafficNodeIP is not set and masterTrafficNodeInterface is set, then first IPv4 addr from masterTrafficNodeInterface is used. If masterTrafficNodeIP and masterTrafficNodeInterface is not set, then it will use the node IP used by pod network",
 	"servingInfo":                     "ServingInfo describes how to start serving",
 	"masterKubeConfig":                "MasterKubeConfig is a filename for the .kubeconfig file that describes how to connect this node to the master",
 	"masterClientConnectionOverrides": "MasterClientConnectionOverrides provides overrides to the client connection used to connect to the master.",
