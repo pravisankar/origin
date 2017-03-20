@@ -17,8 +17,8 @@ func ValidateNodeConfig(config *api.NodeConfig, fldPath *field.Path) ValidationR
 	if len(config.NodeName) == 0 {
 		validationResults.AddErrors(field.Required(fldPath.Child("nodeName"), ""))
 	}
-	if len(config.NodeIP) > 0 {
-		validationResults.AddErrors(ValidateSpecifiedIP(config.NodeIP, fldPath.Child("nodeIP"))...)
+	if len(config.PodTrafficNodeIP) > 0 {
+		validationResults.AddErrors(ValidateSpecifiedIP(config.PodTrafficNodeIP, fldPath.Child("podTrafficNodeIP"))...)
 	}
 
 	servingInfoPath := fldPath.Child("servingInfo")

@@ -142,7 +142,7 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig, enableProxy, enable
 	server.RequireKubeConfig = true
 	server.PodManifestPath = path
 	server.RootDirectory = options.VolumeDirectory
-	server.NodeIP = options.NodeIP
+	server.NodeIP = options.PodTrafficNodeIP
 	server.HostnameOverride = options.NodeName
 	server.AllowPrivileged = true
 	server.RegisterNode = true
@@ -206,7 +206,7 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig, enableProxy, enable
 
 	internalKubeInformers := kinternalinformers.NewSharedInformerFactory(kubeClient, proxyconfig.ConfigSyncPeriod)
 
-	sdnPlugin, err := sdnplugin.NewNodePlugin(options.NetworkConfig.NetworkPluginName, originClient, kubeClient, options.NodeName, options.NodeIP, iptablesSyncPeriod, options.NetworkConfig.MTU, internalKubeInformers)
+	sdnPlugin, err := sdnplugin.NewNodePlugin(options.NetworkConfig.NetworkPluginName, originClient, kubeClient, options.NodeName, options.PodTrafficNodeIP, iptablesSyncPeriod, options.NetworkConfig.MTU, internalKubeInformers)
 	if err != nil {
 		return nil, fmt.Errorf("SDN initialization failed: %v", err)
 	}

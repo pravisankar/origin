@@ -124,6 +124,9 @@ func addDefaultingFuncs(scheme *runtime.Scheme) error {
 			}
 			setDefault_ClientConnectionOverrides(obj.MasterClientConnectionOverrides)
 
+			if len(obj.PodTrafficNodeIP) == 0 {
+				obj.PodTrafficNodeIP = obj.DeprecatedNodeIP
+			}
 			// Defaults/migrations for NetworkConfig
 			if len(obj.NetworkConfig.NetworkPluginName) == 0 {
 				obj.NetworkConfig.NetworkPluginName = obj.DeprecatedNetworkPluginName
