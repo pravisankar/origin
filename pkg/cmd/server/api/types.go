@@ -169,6 +169,14 @@ type NodeConfig struct {
 	// and the first non-loopback address is used
 	PodTrafficNodeIP string
 
+	// Network interface on the node to be used for traffic between master and node
+	MasterTrafficNodeInterface string
+
+	// Node may have multiple IPs, specify the IP to use for traffic between master and node
+	// If MasterTrafficNodeIP is not set and MasterTrafficNodeInterface is set, then first IPv4 addr from MasterTrafficNodeInterface is used.
+	// If MasterTrafficNodeIP and MasterTrafficNodeInterface is not set, then it will use the node IP used by pod network
+	MasterTrafficNodeIP string
+
 	// ServingInfo describes how to start serving
 	ServingInfo ServingInfo
 

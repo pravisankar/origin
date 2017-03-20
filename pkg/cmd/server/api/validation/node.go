@@ -21,6 +21,9 @@ func ValidateNodeConfig(config *api.NodeConfig, fldPath *field.Path) ValidationR
 	if len(config.PodTrafficNodeInterface) > 0 || len(config.PodTrafficNodeIP) > 0 {
 		validationResults.AddErrors(ValidatePodTrafficParams(config.PodTrafficNodeInterface, config.PodTrafficNodeIP, fldPath)...)
 	}
+	if len(config.MasterTrafficNodeInterface) > 0 || len(config.MasterTrafficNodeIP) > 0 {
+		validationResults.AddErrors(ValidateMasterTrafficParams(config.MasterTrafficNodeInterface, config.MasterTrafficNodeIP, fldPath)...)
+	}
 
 	servingInfoPath := fldPath.Child("servingInfo")
 	validationResults.Append(ValidateServingInfo(config.ServingInfo, servingInfoPath))
@@ -96,6 +99,10 @@ func ValidateNodeAuthConfig(config api.NodeAuthConfig, fldPath *field.Path) fiel
 
 func ValidatePodTrafficParams(nodeIface, nodeIP string, fldPath *field.Path) field.ErrorList {
 	return ValidateNetworkInterfaceAndIP(nodeIface, nodeIP, fldPath.Child("podTrafficNodeInterface"), fldPath.Child("podTrafficNodeIP"))
+}
+
+func ValidateMasterTrafficParams(nodeIface, nodeIP string, fldPath *field.Path) field.ErrorList {
+	return ValidateNetworkInterfaceAndIP(nodeIface, nodeIP, fldPath.Child("masterTrafficNodeInterface"), fldPath.Child("masterTrafficNodeIP"))
 }
 
 func ValidateNetworkInterfaceAndIP(iface, ip string, ifaceFieldPath, ipFieldPath *field.Path) field.ErrorList {

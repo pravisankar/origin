@@ -139,6 +139,9 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig, enableProxy, enable
 	if len(options.PodTrafficNodeInterface) > 0 && len(options.PodTrafficNodeIP) == 0 {
 		options.PodTrafficNodeIP = GetIPAddrFromNetworkInterface(options.PodTrafficNodeInterface)
 	}
+	if len(options.MasterTrafficNodeInterface) > 0 && len(options.MasterTrafficNodeIP) == 0 {
+		options.MasterTrafficNodeIP = GetIPAddrFromNetworkInterface(options.MasterTrafficNodeInterface)
+	}
 
 	// Defaults are tested in TestKubeletDefaults
 	server := kubeletoptions.NewKubeletServer()

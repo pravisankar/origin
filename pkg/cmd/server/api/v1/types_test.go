@@ -53,6 +53,8 @@ networkConfig:
   networkPluginName: ""
 podTrafficNodeInterface: ""
 podTrafficNodeIP: ""
+masterTrafficNodeInterface: ""
+masterTrafficNodeIP: ""
 nodeName: ""
 podManifestConfig:
   fileCheckIntervalSeconds: 0
