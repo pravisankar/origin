@@ -136,6 +136,10 @@ func BuildKubernetesNodeConfig(options configapi.NodeConfig, enableProxy, enable
 		return nil, err
 	}
 
+	if len(options.PodTrafficNodeInterface) > 0 && len(options.PodTrafficNodeIP) == 0 {
+		options.PodTrafficNodeIP = GetIPAddrFromNetworkInterface(options.PodTrafficNodeInterface)
+	}
+
 	// Defaults are tested in TestKubeletDefaults
 	server := kubeletoptions.NewKubeletServer()
 	// Adjust defaults
@@ -444,6 +448,34 @@ func validateNetworkPluginName(originClient *osclient.Client, pluginName string)
 		}
 	}
 	return nil
+}
+
+// Return first IPv4 addr from the given network interface
+func GetIPAddrFromNetworkInterface(iface string) string {
+	networkInterface, err := net.InterfaceByName(iface)
+	if err != nil {
+		// Invalid interface: We expect this error to be caught during validation
+		return ""
+	}
+	addrs, err := networkInterface.Addrs()
+	if err != nil {
+		// We expect this error to be caught during validation
+		return ""
+	}
+
+	for _, addr := range addrs {
+		var ip net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		if ip != nil && ip.To4() != nil {
+			return ip.String()
+		}
+	}
+	return ""
 }
 
 func buildCloudProvider(server *kubeletoptions.KubeletServer) (cloudprovider.Interface, error) {

@@ -18,8 +18,14 @@ type NodeConfig struct {
 
 	// Deprecated and maintained for backward compatibility, use podTrafficNodeIP instead
 	DeprecatedNodeIP string `json:"nodeIP,omitempty"`
+
+	// Network interface on the node to be used for pod traffic
+	PodTrafficNodeInterface string `json:"podTrafficNodeInterface"`
+
 	// Node may have multiple IPs, specify the IP to use for pod traffic routing
-	// If not specified, network parse/lookup on the nodeName is performed and the first non-loopback address is used
+	// If podTrafficNodeIP is not set and podTrafficNodeInterface is set, then first IPv4 addr from podTrafficNodeInterface is used.
+	// If podTrafficNodeIP and podTrafficNodeInterface is not set, then network parse/lookup on the nodeName is performed
+	// and the first non-loopback address is used
 	PodTrafficNodeIP string `json:"podTrafficNodeIP"`
 
 	// ServingInfo describes how to start serving

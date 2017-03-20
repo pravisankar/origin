@@ -2,6 +2,7 @@ package validation
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -17,8 +18,8 @@ func ValidateNodeConfig(config *api.NodeConfig, fldPath *field.Path) ValidationR
 	if len(config.NodeName) == 0 {
 		validationResults.AddErrors(field.Required(fldPath.Child("nodeName"), ""))
 	}
-	if len(config.PodTrafficNodeIP) > 0 {
-		validationResults.AddErrors(ValidateSpecifiedIP(config.PodTrafficNodeIP, fldPath.Child("podTrafficNodeIP"))...)
+	if len(config.PodTrafficNodeInterface) > 0 || len(config.PodTrafficNodeIP) > 0 {
+		validationResults.AddErrors(ValidatePodTrafficParams(config.PodTrafficNodeInterface, config.PodTrafficNodeIP, fldPath)...)
 	}
 
 	servingInfoPath := fldPath.Child("servingInfo")
@@ -90,6 +91,57 @@ func ValidateNodeAuthConfig(config api.NodeAuthConfig, fldPath *field.Path) fiel
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("authorizationCacheSize"), config.AuthorizationCacheSize, fmt.Sprintf("must be greater than zero")))
 	}
 
+	return allErrs
+}
+
+func ValidatePodTrafficParams(nodeIface, nodeIP string, fldPath *field.Path) field.ErrorList {
+	return ValidateNetworkInterfaceAndIP(nodeIface, nodeIP, fldPath.Child("podTrafficNodeInterface"), fldPath.Child("podTrafficNodeIP"))
+}
+
+func ValidateNetworkInterfaceAndIP(iface, ip string, ifaceFieldPath, ipFieldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	var addrs []net.Addr
+	if len(iface) > 0 {
+		networkInterface, err := net.InterfaceByName(iface)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(ifaceFieldPath, iface, fmt.Sprintf("network interface validation failed: %v", err)))
+		}
+		addrs, err = networkInterface.Addrs()
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(ifaceFieldPath, iface, fmt.Sprintf("unable to fetch IP addresses for network interface %q: %v", iface, err)))
+		}
+	}
+
+	if len(ip) > 0 {
+		ipObj := net.ParseIP(ip)
+		if ipObj == nil {
+			allErrs = append(allErrs, field.Invalid(ipFieldPath, ip, "must be a valid IP"))
+		} else if ipObj.IsUnspecified() {
+			allErrs = append(allErrs, field.Invalid(ipFieldPath, ip, "cannot be an unspecified IP"))
+		}
+
+		if len(addrs) > 0 {
+			found := false
+			for _, addr := range addrs {
+				var nip net.IP
+				switch v := addr.(type) {
+				case *net.IPNet:
+					nip = v.IP
+				case *net.IPAddr:
+					nip = v.IP
+				}
+				if nip != nil && nip.Equal(ipObj) {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				allErrs = append(allErrs, field.Invalid(ipFieldPath, ip, fmt.Sprintf("IP %q not found in network interface %q", ip, iface)))
+			}
+		}
+	}
 	return allErrs
 }
 

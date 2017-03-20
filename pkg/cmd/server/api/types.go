@@ -160,8 +160,13 @@ type NodeConfig struct {
 	// Deprecated and maintained for backward compatibility, use PodTrafficNodeIP instead
 	DeprecatedNodeIP string
 
+	// Network interface on the node to be used for pod traffic
+	PodTrafficNodeInterface string
+
 	// Node may have multiple IPs, specify the IP to use for pod traffic routing
-	// If not specified, network parse/lookup on the nodeName is performed and the first non-loopback address is used
+	// If PodTrafficNodeIP is not set and PodTrafficNodeInterface is set, then first IPv4 addr from PodTrafficNodeInterface is used.
+	// If PodTrafficNodeIP and PodTrafficNodeInterface is not set, then network parse/lookup on the nodeName is performed
+	// and the first non-loopback address is used
 	PodTrafficNodeIP string
 
 	// ServingInfo describes how to start serving
