@@ -541,7 +541,8 @@ func (NodeAuthConfig) SwaggerDoc() map[string]string {
 var map_NodeConfig = map[string]string{
 	"":                                "NodeConfig is the fully specified config starting an OpenShift node",
 	"nodeName":                        "NodeName is the value used to identify this particular node in the cluster.  If possible, this should be your fully qualified hostname. If you're describing a set of static nodes to the master, this value must match one of the values in the list",
-	"nodeIP":                          "Node may have multiple IPs, specify the IP to use for pod traffic routing If not specified, network parse/lookup on the nodeName is performed and the first non-loopback address is used",
+	"nodeIP":                          "Deprecated and maintained for backward compatibility, use podTrafficNodeIP instead",
+	"podTrafficNodeIP":                "Node may have multiple IPs, specify the IP to use for pod traffic routing If not specified, network parse/lookup on the nodeName is performed and the first non-loopback address is used",
 	"servingInfo":                     "ServingInfo describes how to start serving",
 	"masterKubeConfig":                "MasterKubeConfig is a filename for the .kubeconfig file that describes how to connect this node to the master",
 	"masterClientConnectionOverrides": "MasterClientConnectionOverrides provides overrides to the client connection used to connect to the master.",
