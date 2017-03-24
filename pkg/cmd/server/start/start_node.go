@@ -372,6 +372,9 @@ func StartNode(nodeConfig configapi.NodeConfig, components *utilflags.ComponentF
 	if components.Enabled(ComponentDNS) && config.DNSServer != nil {
 		config.RunDNS()
 	}
+	if components.Enabled(ComponentKubelet) {
+		configapi.RunAssignMasterTrafficNodeIP()
+	}
 
 	config.InternalKubeInformers.Start(wait.NeverStop)
 
