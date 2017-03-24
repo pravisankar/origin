@@ -38,7 +38,6 @@ import (
 	kubeapiv1 "k8s.io/kubernetes/pkg/api/v1"
 	v1beta1extensions "k8s.io/kubernetes/pkg/apis/extensions/v1beta1"
 	kclientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	kubeletclient "k8s.io/kubernetes/pkg/kubelet/client"
 
 	authzapiv1 "github.com/openshift/origin/pkg/authorization/api/v1"
 	authzcache "github.com/openshift/origin/pkg/authorization/authorizer/cache"
@@ -590,7 +589,7 @@ func initOAuthAuthorizationServerMetadataRoute(apiContainer *genericmux.APIConta
 
 func (c *MasterConfig) GetRestStorage() map[schema.GroupVersion]map[string]rest.Storage {
 	//TODO/REBASE use something other than c.KubeClientsetInternal
-	nodeConnectionInfoGetter, err := kubeletclient.NewNodeConnectionInfoGetter(c.KubeClientsetExternal().CoreV1().Nodes(), *c.KubeletClientConfig)
+	nodeConnectionInfoGetter, err := NewOriginNodeConnectionInfoGetter(c.KubeClientsetExternal().CoreV1().Nodes(), *c.KubeletClientConfig)
 	if err != nil {
 		glog.Fatalf("Unable to configure the node connection info getter: %v", err)
 	}
