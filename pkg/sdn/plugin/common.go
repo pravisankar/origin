@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 	"time"
 
@@ -170,4 +171,29 @@ func RunNamespacedPodEventQueue(client kcache.Getter, namespace string, closeCha
 			eventQueue.Pop(process, &kapi.Pod{})
 		}
 	}
+}
+
+func getDeletedObjFromInformer(obj interface{}, resourceName ResourceName) (interface{}, error) {
+	var expectedObjType interface{}
+
+	switch resourceName {
+	case Nodes:
+		expectedObjType = &kapi.Node{}
+	default:
+		return nil, fmt.Errorf("Unknown resource name: %s", resourceName)
+	}
+
+	realObj := obj
+	if reflect.TypeOf(expectedObjType) != reflect.TypeOf(realObj) {
+		tombstone, ok := obj.(kcache.DeletedFinalStateUnknown)
+		if !ok {
+			return nil, fmt.Errorf("Couldn't get object from tombstone: %+v", obj)
+		}
+
+		realObj = tombstone.Obj
+		if reflect.TypeOf(expectedObjType) != reflect.TypeOf(realObj) {
+			return nil, fmt.Errorf("Tombstone contained object that is not a %s: %+v", resourceName, obj)
+		}
+	}
+	return realObj, nil
 }
