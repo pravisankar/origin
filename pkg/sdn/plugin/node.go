@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	kubeutilnet "k8s.io/apimachinery/pkg/util/net"
 	kwait "k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	kapi "k8s.io/kubernetes/pkg/api"
 	kclientset "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
@@ -255,7 +256,7 @@ func (node *OsdnNode) Start() error {
 	if err = node.policy.Start(node); err != nil {
 		return err
 	}
-	go kwait.Forever(node.watchServices, 0)
+	node.watchServices()
 
 	log.V(5).Infof("Starting openshift-sdn pod manager")
 	if err := node.podManager.Start(cniserver.CNIServerSocketPath, node.host, node.localSubnetCIDR, node.networkInfo.ClusterNetwork); err != nil {
@@ -351,45 +352,61 @@ func isServiceChanged(oldsvc, newsvc *kapi.Service) bool {
 }
 
 func (node *OsdnNode) watchServices() {
-	services := make(map[string]*kapi.Service)
-	RunEventQueue(node.kClient.Core().RESTClient(), Services, func(delta cache.Delta) error {
-		serv := delta.Object.(*kapi.Service)
-
-		// Ignore headless services
-		if !kapi.IsServiceIPSet(serv) {
-			return nil
-		}
-
-		log.V(5).Infof("Watch %s event for Service %q", delta.Type, serv.ObjectMeta.Name)
-		switch delta.Type {
-		case cache.Sync, cache.Added, cache.Updated:
-			oldsvc, exists := services[string(serv.UID)]
-			if exists {
-				if !isServiceChanged(oldsvc, serv) {
-					break
-				}
-				node.DeleteServiceRules(oldsvc)
-			}
-
-			netid, err := node.policy.GetVNID(serv.Namespace)
+	svcInformer := node.kubeInformers.Core().InternalVersion().Services()
+	svcInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			serv := obj.(*kapi.Service)
+			node.handleAddOrUpdateService(serv, nil, watch.Added)
+		},
+		UpdateFunc: func(oldObj, obj interface{}) {
+			oldServ := oldObj.(*kapi.Service)
+			serv := obj.(*kapi.Service)
+			node.handleAddOrUpdateService(serv, oldServ, watch.Modified)
+		},
+		DeleteFunc: func(obj interface{}) {
+			obj, err := getDeletedObjFromInformer(obj, Services)
 			if err != nil {
-				return fmt.Errorf("skipped adding service rules for serviceEvent: %v, Error: %v", delta.Type, err)
+				log.Error(err)
+				return
 			}
-
-			node.AddServiceRules(serv, netid)
-			services[string(serv.UID)] = serv
-			if !exists {
-				node.policy.RefVNID(netid)
-			}
-		case cache.Deleted:
-			delete(services, string(serv.UID))
-			node.DeleteServiceRules(serv)
-
-			netid, err := node.policy.GetVNID(serv.Namespace)
-			if err == nil {
-				node.policy.UnrefVNID(netid)
-			}
-		}
-		return nil
+			serv := obj.(*kapi.Service)
+			node.handleDeleteService(serv)
+		},
 	})
+}
+
+func (node *OsdnNode) handleAddOrUpdateService(serv, oldServ *kapi.Service, eventType watch.EventType) {
+	// Ignore headless services
+	if !kapi.IsServiceIPSet(serv) {
+		return
+	}
+
+	log.V(5).Infof("Watch %s event for Service %q", eventType, serv.Name)
+	if oldServ != nil {
+		if !isServiceChanged(oldServ, serv) {
+			return
+		}
+		node.DeleteServiceRules(oldServ)
+	}
+
+	netid, err := node.policy.GetVNID(serv.Namespace)
+	if err != nil {
+		log.Errorf("Skipped adding service rules for serviceEvent: %v, Error: %v", eventType, err)
+		return
+	}
+
+	node.AddServiceRules(serv, netid)
+	if oldServ == nil {
+		node.policy.RefVNID(netid)
+	}
+}
+
+func (node *OsdnNode) handleDeleteService(serv *kapi.Service) {
+	log.V(5).Infof("Watch %s event for Service %q", watch.Deleted, serv.Name)
+	node.DeleteServiceRules(serv)
+
+	netid, err := node.policy.GetVNID(serv.Namespace)
+	if err == nil {
+		node.policy.UnrefVNID(netid)
+	}
 }

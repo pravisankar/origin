@@ -181,6 +181,8 @@ func getDeletedObjFromInformer(obj interface{}, resourceName ResourceName) (inte
 		expectedObjType = &kapi.Node{}
 	case Namespaces:
 		expectedObjType = &kapi.Namespace{}
+	case Services:
+		expectedObjType = &kapi.Service{}
 	default:
 		return nil, fmt.Errorf("Unknown resource name: %s", resourceName)
 	}
