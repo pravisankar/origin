@@ -158,21 +158,6 @@ func RunEventQueue(client kcache.Getter, resourceName ResourceName, process Proc
 	}
 }
 
-func RunNamespacedPodEventQueue(client kcache.Getter, namespace string, closeChan chan struct{}, process ProcessEventFunc) {
-	eventQueue := newEventQueue(client, Pods, &kapi.Pod{}, namespace)
-	// Loop calling eventQueue.Pop() until closeChan is closed. process() will be called
-	// once after closeChan is closed; this possibility is unavoidable anyway due to race
-	// conditions.
-	for {
-		select {
-		case <-closeChan:
-			return
-		default:
-			eventQueue.Pop(process, &kapi.Pod{})
-		}
-	}
-}
-
 func getDeletedObjFromInformer(obj interface{}, resourceName ResourceName) (interface{}, error) {
 	var expectedObjType interface{}
 
@@ -183,6 +168,8 @@ func getDeletedObjFromInformer(obj interface{}, resourceName ResourceName) (inte
 		expectedObjType = &kapi.Namespace{}
 	case Services:
 		expectedObjType = &kapi.Service{}
+	case Pods:
+		expectedObjType = &kapi.Pod{}
 	default:
 		return nil, fmt.Errorf("Unknown resource name: %s", resourceName)
 	}
