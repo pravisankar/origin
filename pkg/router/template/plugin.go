@@ -273,6 +273,38 @@ func createRouterEndpoints(endpoints *kapi.Endpoints, excludeUDP bool, lookupSvc
 
 	out := make([]Endpoint, 0, len(endpoints.Subsets)*4)
 
+	handleAddress := func(a kapi.EndpointAddress, p kapi.EndpointPort, draining bool) {
+		ep := Endpoint{
+			IP:   a.IP,
+			Port: strconv.Itoa(int(p.Port)),
+
+			PortName: p.Name,
+
+			NoHealthCheck: wasIdled,
+		}
+		ep.Draining = draining
+		if a.TargetRef != nil {
+			ep.TargetName = a.TargetRef.Name
+			if a.TargetRef.Kind == "Pod" {
+				ep.ID = fmt.Sprintf("pod:%s:%s:%s:%d", ep.TargetName, endpoints.Name, a.IP, p.Port)
+			} else {
+				ep.ID = fmt.Sprintf("ept:%s:%s:%d", endpoints.Name, a.IP, p.Port)
+			}
+		} else {
+			ep.TargetName = ep.IP
+			ep.ID = fmt.Sprintf("ept:%s:%s:%d", endpoints.Name, a.IP, p.Port)
+		}
+
+		// IdHash contains an obfuscated internal IP address
+		// that is the value passed in the cookie. The IP address
+		// is made more difficult to extract by including other
+		// internal information in the hash.
+		s := ep.ID
+		ep.IdHash = fmt.Sprintf("%x", md5.Sum([]byte(s)))
+
+		out = append(out, ep)
+	}
+
 	// TODO: review me for sanity
 	for _, s := range subsets {
 		for _, p := range s.Ports {
@@ -280,34 +312,11 @@ func createRouterEndpoints(endpoints *kapi.Endpoints, excludeUDP bool, lookupSvc
 				continue
 			}
 			for _, a := range s.Addresses {
-				ep := Endpoint{
-					IP:   a.IP,
-					Port: strconv.Itoa(int(p.Port)),
+				handleAddress(a, p, false)
+			}
 
-					PortName: p.Name,
-
-					NoHealthCheck: wasIdled,
-				}
-				if a.TargetRef != nil {
-					ep.TargetName = a.TargetRef.Name
-					if a.TargetRef.Kind == "Pod" {
-						ep.ID = fmt.Sprintf("pod:%s:%s:%s:%d", ep.TargetName, endpoints.Name, a.IP, p.Port)
-					} else {
-						ep.ID = fmt.Sprintf("ept:%s:%s:%d", endpoints.Name, a.IP, p.Port)
-					}
-				} else {
-					ep.TargetName = ep.IP
-					ep.ID = fmt.Sprintf("ept:%s:%s:%d", endpoints.Name, a.IP, p.Port)
-				}
-
-				// IdHash contains an obfuscated internal IP address
-				// that is the value passed in the cookie. The IP address
-				// is made more difficult to extract by including other
-				// internal information in the hash.
-				s := ep.ID
-				ep.IdHash = fmt.Sprintf("%x", md5.Sum([]byte(s)))
-
-				out = append(out, ep)
+			for _, a := range s.NotReadyAddresses {
+				handleAddress(a, p, true)
 			}
 		}
 	}

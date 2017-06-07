@@ -73,6 +73,7 @@ type TemplateRouter struct {
 	DefaultCertificateDir    string
 	DefaultDestinationCAPath string
 	ExtendedValidation       bool
+	PodDraining              bool
 	RouterService            *ktypes.NamespacedName
 	BindPortsAfterSync       bool
 	MaxConnections           string
@@ -105,6 +106,7 @@ func (o *TemplateRouter) Bind(flag *pflag.FlagSet) {
 	flag.StringVar(&o.ReloadScript, "reload", util.Env("RELOAD_SCRIPT", ""), "The path to the reload script to use")
 	flag.DurationVar(&o.ReloadInterval, "interval", reloadInterval(), "Controls how often router reloads are invoked. Mutiple router reload requests are coalesced for the duration of this interval since the last reload time.")
 	flag.BoolVar(&o.ExtendedValidation, "extended-validation", util.Env("EXTENDED_VALIDATION", "true") == "true", "If set, then an additional extended validation step is performed on all routes admitted in by this router. Defaults to true and enables the extended validation checks.")
+	flag.BoolVar(&o.PodDraining, "pod-draining", util.Env("POD_DRAINING", "true") == "true", "If set, then the router will send existing sticky sessions to terminating pods, if the service is annotated to tolerate unready endpoints.  Defaults to true and enables pod draining.")
 	flag.BoolVar(&o.BindPortsAfterSync, "bind-ports-after-sync", util.Env("ROUTER_BIND_PORTS_AFTER_SYNC", "") == "true", "Bind ports only after route state has been synchronized")
 	flag.StringVar(&o.MaxConnections, "max-connections", util.Env("ROUTER_MAX_CONNECTIONS", ""), "Specifies the maximum number of concurrent connections.")
 	flag.StringVar(&o.Ciphers, "ciphers", util.Env("ROUTER_CIPHERS", ""), "Specifies the cipher suites to use. You can choose a predefined cipher set ('modern', 'intermediate', or 'old') or specify exact cipher suites by passing a : separated list.")
@@ -364,6 +366,10 @@ func (o *TemplateRouterOptions) Run() error {
 	if o.ExtendedValidation {
 		nextPlugin = controller.NewExtendedValidator(nextPlugin, controller.RejectionRecorder(statusPlugin))
 	}
+	if o.PodDraining {
+		nextPlugin = controller.NewPodDrainer(nextPlugin, svcFetcher)
+	}
+
 	uniqueHostPlugin := controller.NewUniqueHost(nextPlugin, o.RouteSelectionFunc(), o.RouterSelection.DisableNamespaceOwnershipCheck, controller.RejectionRecorder(statusPlugin))
 	plugin := controller.NewHostAdmitter(uniqueHostPlugin, o.RouteAdmissionFunc(), o.AllowWildcardRoutes, o.RouterSelection.DisableNamespaceOwnershipCheck, controller.RejectionRecorder(statusPlugin))
 
