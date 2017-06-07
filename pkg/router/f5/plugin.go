@@ -549,6 +549,11 @@ func (p *F5Plugin) HandleNamespaces(namespaces sets.String) error {
 	return fmt.Errorf("namespace limiting for F5 is not implemented")
 }
 
+func (p *F5Plugin) HandlePod(eventType watch.EventType, pod *kapi.Pod) error {
+	// Pod draining not supported
+	return nil
+}
+
 func (p *F5Plugin) HandleNode(eventType watch.EventType, node *kapi.Node) error {
 	// The F5 appliance, if hooked to use the VxLAN encapsulation
 	// should have its FDB updated depending on nodes arriving and leaving the cluster

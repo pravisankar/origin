@@ -115,6 +115,11 @@ func (p *HostAdmitter) HandleNode(eventType watch.EventType, node *kapi.Node) er
 	return p.plugin.HandleNode(eventType, node)
 }
 
+// HandlePod processes watch events on the Pod resource.
+func (p *HostAdmitter) HandlePod(eventType watch.EventType, pod *kapi.Pod) error {
+	return p.plugin.HandlePod(eventType, pod)
+}
+
 // HandleEndpoints processes watch events on the Endpoints resource.
 func (p *HostAdmitter) HandleEndpoints(eventType watch.EventType, endpoints *kapi.Endpoints) error {
 	return p.plugin.HandleEndpoints(eventType, endpoints)

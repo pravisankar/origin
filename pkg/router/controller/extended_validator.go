@@ -43,6 +43,11 @@ func (p *ExtendedValidator) HandleNode(eventType watch.EventType, node *kapi.Nod
 	return p.plugin.HandleNode(eventType, node)
 }
 
+// HandlePod processes watch events on the pod resource
+func (p *ExtendedValidator) HandlePod(eventType watch.EventType, pod *kapi.Pod) error {
+	return p.plugin.HandlePod(eventType, pod)
+}
+
 // HandleEndpoints processes watch events on the Endpoints resource.
 func (p *ExtendedValidator) HandleEndpoints(eventType watch.EventType, endpoints *kapi.Endpoints) error {
 	return p.plugin.HandleEndpoints(eventType, endpoints)

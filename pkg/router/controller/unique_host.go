@@ -85,6 +85,11 @@ func (p *UniqueHost) HandleEndpoints(eventType watch.EventType, endpoints *kapi.
 	return p.plugin.HandleEndpoints(eventType, endpoints)
 }
 
+// HandlePod processes watch events on the Pod resource and calls the router
+func (p *UniqueHost) HandlePod(eventType watch.EventType, pod *kapi.Pod) error {
+	return p.plugin.HandlePod(eventType, pod)
+}
+
 // HandleNode processes watch events on the Node resource and calls the router
 func (p *UniqueHost) HandleNode(eventType watch.EventType, node *kapi.Node) error {
 	return p.plugin.HandleNode(eventType, node)

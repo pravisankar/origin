@@ -29,6 +29,7 @@ type RouterController struct {
 
 	Plugin        router.Plugin
 	NextRoute     func() (watch.EventType, *routeapi.Route, error)
+	NextPod       func() (watch.EventType, *kapi.Pod, error)
 	NextNode      func() (watch.EventType, *kapi.Node, error)
 	NextEndpoints func() (watch.EventType, *kapi.Endpoints, error)
 	NextIngress   func() (watch.EventType, *extensions.Ingress, error)
@@ -74,6 +75,7 @@ func (c *RouterController) Run() {
 	}
 	go utilwait.Forever(c.HandleRoute, 0)
 	go utilwait.Forever(c.HandleEndpoints, 0)
+	go utilwait.Forever(c.HandlePod, 0)
 	if c.WatchNodes {
 		go utilwait.Forever(c.HandleNode, 0)
 	}
@@ -222,6 +224,24 @@ func (c *RouterController) HandleEndpoints() {
 	// Change the local sync state within the lock to ensure that all
 	// event handlers have the same view of sync state.
 	c.endpointsListConsumed = c.EndpointsListConsumed()
+	c.commit()
+}
+
+// HandlePod handles a single Pod event and refreshes the router backend.
+func (c *RouterController) HandlePod() {
+	eventType, pod, err := c.NextPod()
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("unable to read pod: %v", err))
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if err := c.Plugin.HandlePod(eventType, pod); err != nil {
+		utilruntime.HandleError(err)
+	}
+
 	c.commit()
 }
 

@@ -325,6 +325,10 @@ func (a *StatusAdmitter) HandleNode(eventType watch.EventType, node *kapi.Node) 
 	return a.plugin.HandleNode(eventType, node)
 }
 
+func (a *StatusAdmitter) HandlePod(eventType watch.EventType, pod *kapi.Pod) error {
+	return a.plugin.HandlePod(eventType, pod)
+}
+
 func (a *StatusAdmitter) HandleEndpoints(eventType watch.EventType, route *kapi.Endpoints) error {
 	return a.plugin.HandleEndpoints(eventType, route)
 }

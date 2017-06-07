@@ -34,6 +34,7 @@ type RouterControllerFactory struct {
 	OSClient       osclient.RoutesGetter
 	IngressClient  kextensionsclient.IngressesGetter
 	SecretClient   kcoreclient.SecretsGetter
+	PodClient      kcoreclient.PodsGetter
 	NodeClient     kcoreclient.NodesGetter
 	Namespaces     routercontroller.NamespaceLister
 	ResyncInterval time.Duration
@@ -50,6 +51,7 @@ func NewDefaultRouterControllerFactory(oc osclient.RoutesGetter, kc kclientset.I
 		IngressClient:  kc.Extensions(),
 		SecretClient:   kc.Core(),
 		NodeClient:     kc.Core(),
+		PodClient:      kc.Core(),
 		ResyncInterval: 10 * time.Minute,
 
 		Namespace: metav1.NamespaceAll,
@@ -93,6 +95,13 @@ func (factory *RouterControllerFactory) Create(plugin router.Plugin, watchNodes,
 		namespace: factory.Namespace,
 		// we do not scope endpoints by labels or fields because the route labels != endpoints labels
 	}, &kapi.Endpoints{}, endpointsEventQueue, factory.ResyncInterval).Run()
+
+	podEventQueue := oscache.NewEventQueue(routerKeyFn)
+	cache.NewReflector(&podsLW{
+		client:    factory.PodClient,
+		namespace: factory.Namespace,
+		label:     labels.Everything(),
+	}, &kapi.Pod{}, podEventQueue, factory.ResyncInterval).Run()
 
 	nodeEventQueue := oscache.NewEventQueue(routerKeyFn)
 	if watchNodes {
@@ -139,6 +148,13 @@ func (factory *RouterControllerFactory) Create(plugin router.Plugin, watchNodes,
 				return watch.Error, nil, err
 			}
 			return eventType, obj.(*routeapi.Route), nil
+		},
+		NextPod: func() (watch.EventType, *kapi.Pod, error) {
+			eventType, obj, err := podEventQueue.Pop()
+			if err != nil {
+				return watch.Error, nil, err
+			}
+			return eventType, obj.(*kapi.Pod), nil
 		},
 		NextNode: func() (watch.EventType, *kapi.Node, error) {
 			eventType, obj, err := nodeEventQueue.Pop()
@@ -417,6 +433,34 @@ func (lw *nodeLW) Watch(options metav1.ListOptions) (watch.Interface, error) {
 		ResourceVersion: options.ResourceVersion,
 	}
 	return lw.client.Nodes().Watch(opts)
+}
+
+// podsLW is a list watcher for nodes.
+type podsLW struct {
+	client    kcoreclient.PodsGetter
+	label     labels.Selector
+	field     fields.Selector
+	namespace string
+}
+
+func (lw *podsLW) List(options metav1.ListOptions) (runtime.Object, error) {
+	return lw.client.Pods(lw.namespace).List(options)
+}
+
+func (lw *podsLW) Watch(options metav1.ListOptions) (watch.Interface, error) {
+	var label, field string
+	if lw.label != nil {
+		label = lw.label.String()
+	}
+	if lw.field != nil {
+		field = lw.field.String()
+	}
+	opts := metav1.ListOptions{
+		LabelSelector:   label,
+		FieldSelector:   field,
+		ResourceVersion: options.ResourceVersion,
+	}
+	return lw.client.Pods(lw.namespace).Watch(opts)
 }
 
 // ingressAge sorts ingress resources from oldest to newest and is stable for all of them.
