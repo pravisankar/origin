@@ -154,12 +154,11 @@ function generate_mucast_options() {
 #
 function generate_vip_section() {
   local interface ; interface=${2:-"$(get_network_device)"}
-
   echo ""
   echo "   virtual_ipaddress {"
 
-  for ip in $(expand_ip_ranges "$1"); do
-    echo "      ${ip} dev ${interface}"
+  for ip in ${1}; do
+    echo "    ${ip} dev ${interface}"
   done
 
   echo "   }"
@@ -225,6 +224,7 @@ vrrp_instance ${instance_name} {
 #
 function generate_failover_config() {
   local vips ; vips=$(expand_ip_ranges "${HA_VIPS}")
+  local vip_groups ; vip_groups="${HA_VIP_GROUPS}"
   local interface ; interface=$(get_network_device "${NETWORK_INTERFACE}")
   local ipaddr ; ipaddr=$(get_device_ip_address "${interface}")
   local port="${HA_MONITOR_PORT//[^0-9]/}"
@@ -250,29 +250,58 @@ $(generate_script_config "${ipaddr}" "${port}")
 
   local counter=1
   local previous="none"
+  local i=0
+  local vip_counter=0
+  local total_vips=( $vips )
+  local vips_per_group=1
+  local vips_mod=0
 
-  for vip in ${vips}; do
-    local offset=$((RANDOM % 32))
-    local priority=$((ipslot % 64 + offset))
-    local instancetype="slave"
-    local n=$((counter % idx))
+  if [[ $vip_groups -gt 0 ]]; then
+    vips_per_group=$((${#total_vips[@]} / vip_groups))
+    vips_mod=$((${#total_vips[@]} % vip_groups))
+  fi
 
-    if [[ ${n} -eq 0 ]]; then
-      instancetype="master"
-      if [[ "${previous}" == "master" ]]; then
-        #  Inverse priority + reset, so that we can flip-flop priorities.
-        priority=$((ipslot + 1))
-        previous="flip-flop"
-      else
-        priority=$((255 - ipslot))
-        previous=${instancetype}
+  while [[ "${total_vips[$vip_counter]}" != "" ]]; do
+    local vip_group[$i]=${total_vips[$vip_counter]}
+    vip_counter=$((vip_counter + 1))
+
+    if [[ ${vips_mod} -gt 0 ]]; then
+      $((curr_vips=$vips_per_group + 1))
+    else
+      curr_vips=$vips_per_group
+    fi
+
+    if [[ "${vips_per_group}" != "" ]]; then
+      if [[ "$((${i} + 1))" == "${curr_vips}" ]]; then
+        local offset=$((RANDOM % 32))
+        local priority=$((ipslot % 64 + offset))
+        local instancetype="slave"
+        local n=$((counter % idx))
+
+        if [[ ${n} -eq 0 ]]; then
+          instancetype="master"
+          if [[ "${previous}" == "master" ]]; then
+            #  Inverse priority + reset, so that we can flip-flop priorities.
+            priority=$((ipslot + 1))
+            previous="flip-flop"
+          else
+            priority=$((255 - ipslot))
+            previous=${instancetype}
+          fi
+        fi
+
+        vrrp_vips=${vip_group[*]}
+        generate_vrrpd_instance_config "${HA_CONFIG_NAME}" "${counter}" "${vrrp_vips}"  \
+          "${interface}" "${priority}" "${instancetype}"
+        i=0
+        vip_group=()
+        ((counter++))
+        ((vips_mod--))
+        continue
       fi
     fi
 
-    generate_vrrpd_instance_config "${HA_CONFIG_NAME}" "${counter}" "${vip}"  \
-        "${interface}" "${priority}" "${instancetype}"
-
-    counter=$((counter + 1))
+    i=$((i + 1))
   done
 }
 
