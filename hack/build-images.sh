@@ -54,6 +54,7 @@ os::build::image "${tag_prefix}-keepalived-ipfailover" images/ipfailover/keepali
 os::build::image "${tag_prefix}-docker-registry"       images/dockerregistry
 os::build::image "${tag_prefix}-egress-router"         images/egress/router
 os::build::image "${tag_prefix}-egress-http-proxy"     images/egress/http-proxy
+os::build::image "${tag_prefix}-egress-dns-proxy"      images/egress/dns-proxy
 os::build::image "${tag_prefix}-federation"            images/federation
 # images that depend on "${tag_prefix}
 os::build::image "${tag_prefix}-gitserver"             examples/gitserver

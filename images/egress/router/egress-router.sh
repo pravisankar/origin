@@ -131,6 +131,26 @@ function wait_until_killed() {
     wait
 }
 
+function gen_dnsproxy_iptables_rules() {
+    pod_ip=$(ip addr show dev eth0 | grep -Po 'inet \K[\d.]+')
+    if [[ -z "${pod_ip}" ]]; then
+        die "Failed to fetch Pod IP"
+    fi
+      
+    echo -A PREROUTING -p tcp -d "${pod_ip}" -j DNAT --to-destination "${EGRESS_SOURCE}"
+}
+
+function setup_dnsproxy_iptables() {
+    gen_dnsproxy_iptables_rules
+
+    iptables -t nat -F
+    ( echo "*nat";
+      echo ":PREROUTING ACCEPT [0:0]";
+      echo ":POSTROUTING ACCEPT [0:0]";
+      gen_dnsproxy_iptables_rules;
+      echo "COMMIT" ) | iptables-restore --noflush --table nat
+}
+
 case "${EGRESS_ROUTER_MODE:=legacy}" in
     init)
         setup_network
@@ -146,6 +166,11 @@ case "${EGRESS_ROUTER_MODE:=legacy}" in
     http-proxy)
         setup_network
         ;;
+
+    dns-proxy)
+	    setup_network
+    	setup_dnsproxy_iptables
+	    ;;
 
     unit-test)
         gen_iptables_rules
