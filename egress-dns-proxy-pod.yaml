@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: egress-dns-proxy
+  labels:
+    name: egress-dns-proxy
+  annotations:
+    pod.network.openshift.io/assign-macvlan: "true"
+spec:
+  initContainers:
+  - name: egress-init-container
+    image: pravisankar82/origin-egress-router
+    imagePullPolicy: "IfNotPresent"
+    envFrom:
+    - configMapRef:
+        name: egress-router-env
+    securityContext:
+      privileged: true
+  containers:
+  - name: egress-proxy-container
+    image: pravisankar82/origin-egress-dns-proxy
+    imagePullPolicy: IfNotPresent
+    envFrom:
+    - configMapRef:
+        name: egress-router-env

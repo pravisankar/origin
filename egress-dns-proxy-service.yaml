@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: 2017-07-19T17:04:16Z
+  name: egress-proxy-service
+  namespace: p1
+  resourceVersion: "1412"
+  selfLink: /api/v1/namespaces/p1/services/egress-proxy-service
+  uid: 4c1be46a-6ca4-11e7-a70d-024243900515
+spec:
+  clusterIP: 172.30.83.110
+  ports:
+  - name: tcp-connection1
+    port: 100
+    protocol: TCP
+    targetPort: 100
+  - name: tcp-connection2
+    port: 200
+    protocol: TCP
+    targetPort: 200
+  selector:
+    name: egress-dns-proxy
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

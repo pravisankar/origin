@@ -1,0 +1,26 @@
+{
+	"kind": "Service",
+	"apiVersion": "v1",
+	"metadata": {
+		"name": "egress-proxy-service"
+	},
+	"spec": {
+		"type": "ClusterIP",
+		"ports": [
+			{
+				"name": "tcp-connection1",
+				"protocol": "TCP",
+				"port": 100
+			},
+			{
+				"name": "tcp-connection2",
+				"protocol": "TCP",
+				"port": 200
+			}
+		],
+		"selector": {
+			"name": "egress-dns-proxy"
+		}
+	}
+}
+

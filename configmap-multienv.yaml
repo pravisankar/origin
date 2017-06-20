@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: egress-router-env
+data:
+  EGRESS_ROUTER_MODE: dns-proxy
+  EGRESS_SOURCE: 172.17.0.99
+  EGRESS_GATEWAY: 172.17.0.1
+  EGRESS_DESTINATION: |
+    # Egress routes for Project "Test", version 3
+
+    80  203.0.113.25
+
+    8080 203.0.113.26 80
+
+    100 redhat.com 80
+
+    200 rogerfederer.com 80
