@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 	kapi "k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/apis/extensions"
 
@@ -29,11 +30,12 @@ type RouterController struct {
 
 	Plugin        router.Plugin
 	NextRoute     func() (watch.EventType, *routeapi.Route, error)
-	NextPod       func() (watch.EventType, *kapi.Pod, error)
 	NextNode      func() (watch.EventType, *kapi.Node, error)
 	NextEndpoints func() (watch.EventType, *kapi.Endpoints, error)
 	NextIngress   func() (watch.EventType, *extensions.Ingress, error)
 	NextSecret    func() (watch.EventType, *kapi.Secret, error)
+
+	StartPodWatch func(cache.ResourceEventHandler)
 
 	RoutesListConsumed    func() bool
 	EndpointsListConsumed func() bool
@@ -75,7 +77,6 @@ func (c *RouterController) Run() {
 	}
 	go utilwait.Forever(c.HandleRoute, 0)
 	go utilwait.Forever(c.HandleEndpoints, 0)
-	go utilwait.Forever(c.HandlePod, 0)
 	if c.WatchNodes {
 		go utilwait.Forever(c.HandleNode, 0)
 	}
@@ -83,6 +84,36 @@ func (c *RouterController) Run() {
 		go utilwait.Forever(c.HandleIngress, 0)
 		go utilwait.Forever(c.HandleSecret, 0)
 	}
+
+	c.StartPodWatch(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			pod := obj.(*kapi.Pod)
+			c.HandlePod(watch.Added, pod)
+			return
+		},
+		UpdateFunc: func(old, obj interface{}) {
+			pod := obj.(*kapi.Pod)
+			c.HandlePod(watch.Modified, pod)
+			return
+		},
+		DeleteFunc: func(obj interface{}) {
+			pod, ok := obj.(*kapi.Pod)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					glog.Errorf("couldn't get object from tombstone %+v", obj)
+					return
+				}
+				pod, ok = tombstone.Obj.(*kapi.Pod)
+				if !ok {
+					glog.Errorf("tombstone contained object that is not a pod %#v", obj)
+					return
+				}
+			}
+			c.HandlePod(watch.Deleted, pod)
+			return
+		},
+	})
 	go c.watchForFirstSync()
 }
 
@@ -187,6 +218,20 @@ func (c *RouterController) HandleNode() {
 	}
 }
 
+// HandlePod handles a single Pod event and synchronizes the router backend
+func (c *RouterController) HandlePod(eventType watch.EventType, pod *kapi.Pod) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	glog.V(4).Infof("Processing Pod  : %s", pod.Name)
+	glog.V(4).Infof("           Event: %s", eventType)
+
+	if err := c.Plugin.HandlePod(eventType, pod); err != nil {
+		utilruntime.HandleError(err)
+	}
+	c.commit()
+}
+
 // HandleRoute handles a single Route event and synchronizes the router backend.
 func (c *RouterController) HandleRoute() {
 	eventType, route, err := c.NextRoute()
@@ -224,24 +269,6 @@ func (c *RouterController) HandleEndpoints() {
 	// Change the local sync state within the lock to ensure that all
 	// event handlers have the same view of sync state.
 	c.endpointsListConsumed = c.EndpointsListConsumed()
-	c.commit()
-}
-
-// HandlePod handles a single Pod event and refreshes the router backend.
-func (c *RouterController) HandlePod() {
-	eventType, pod, err := c.NextPod()
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("unable to read pod: %v", err))
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if err := c.Plugin.HandlePod(eventType, pod); err != nil {
-		utilruntime.HandleError(err)
-	}
-
 	c.commit()
 }
 
