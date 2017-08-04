@@ -8,7 +8,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller/endpoint"
 
 	"github.com/golang/glog"
-	routeapi "github.com/openshift/origin/pkg/route/api"
+	routeapi "github.com/openshift/origin/pkg/route/apis/route"
 	"github.com/openshift/origin/pkg/router"
 )
 
