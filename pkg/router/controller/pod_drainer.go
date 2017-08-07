@@ -32,9 +32,7 @@ type ServiceLookup interface {
 	LookupService(*kapi.Endpoints) (*kapi.Service, error)
 }
 
-// NewPodDrainer creates a plugin wrapper that ensures only routes that
-// pass extended validation are relayed to the next plugin in the chain.
-// Recorder is an interface for indicating why a route was rejected.
+// NewPodDrainer creates a plugin wrapper that capture draining pods and calls next plugin in the chain.
 func NewPodDrainer(plugin router.Plugin, lookupSvc ServiceLookup) *PodDrainer {
 	return &PodDrainer{
 		plugin:    plugin,
