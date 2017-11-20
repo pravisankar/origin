@@ -111,6 +111,10 @@ func ValidateNetworkConfig(config api.NodeNetworkConfig, fldPath *field.Path) fi
 	if config.MTU == 0 {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("mtu"), config.MTU, fmt.Sprintf("must be greater than zero")))
 	}
+	if len(config.PodTrafficNodeInterface) > 0 || len(config.PodTrafficNodeIP) > 0 {
+		allErrs = append(allErrs, ValidatePodTrafficParams(config.PodTrafficNodeInterface, config.PodTrafficNodeIP, fldPath)...)
+	}
+
 	return allErrs
 }
 
@@ -141,6 +145,10 @@ func ValidateVolumeConfig(config api.NodeVolumeConfig, fldPath *field.Path) fiel
 			"must be a positive integer"))
 	}
 	return allErrs
+}
+
+func ValidatePodTrafficParams(nodeIface, nodeIP string, fldPath *field.Path) field.ErrorList {
+	return validateNetworkInterfaceAndIP(nodeIface, nodeIP, fldPath.Child("podTrafficNodeInterface"), fldPath.Child("podTrafficNodeIP"))
 }
 
 func ValidateMasterTrafficParams(nodeIface, nodeIP string, fldPath *field.Path) field.ErrorList {

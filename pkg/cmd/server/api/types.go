@@ -172,7 +172,7 @@ type NodeConfig struct {
 	// If you're describing a set of static nodes to the master, this value must match one of the values in the list
 	NodeName string
 
-	// Deprecated and maintained for backward compatibility
+	// Deprecated and maintained for backward compatibility, use MasterTrafficNodeIP and/or NetworkConfig.PodTrafficNodeIP.
 	// Node may have multiple IPs, specify the IP to use for master traffic routing and pod traffic routing.
 	DeprecatedNodeIP string
 
@@ -289,8 +289,17 @@ type LocalQuota struct {
 type NodeNetworkConfig struct {
 	// NetworkPluginName is a string specifying the networking plugin
 	NetworkPluginName string
+
 	// Maximum transmission unit for the network packets
 	MTU uint32
+
+	// PodTrafficNodeInterface is the network interface to be used for pod traffic
+	PodTrafficNodeInterface string
+
+	// PodTrafficNodeIP is the node IP to use for pod traffic routing
+	// If PodTrafficNodeIP is not set and PodTrafficNodeInterface is set, then first non-loopback IPv4 addr from PodTrafficNodeInterface is used.
+	// If PodTrafficNodeIP and PodTrafficNodeInterface is not set, then MasterTrafficNodeIP is used.
+	PodTrafficNodeIP string
 }
 
 // NodeAuthConfig holds authn/authz configuration options
