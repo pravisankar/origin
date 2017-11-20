@@ -20,6 +20,7 @@ import (
 	cmdflags "github.com/openshift/origin/pkg/cmd/util/flags"
 	"github.com/openshift/origin/pkg/cmd/util/variable"
 	"github.com/openshift/origin/pkg/network"
+	"github.com/openshift/origin/pkg/util/netutils"
 )
 
 // Build creates the core Kubernetes component configs for a given NodeConfig, or returns
@@ -43,6 +44,14 @@ func Build(options configapi.NodeConfig) (*kubeletoptions.KubeletServer, error) 
 	kubePort, err := strconv.Atoi(kubePortStr)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse node port: %v", err)
+	}
+
+	if len(options.MasterTrafficNodeInterface) > 0 && len(options.MasterTrafficNodeIP) == 0 {
+		ips, err := netutils.GetIPAddrsFromNetworkInterface(options.MasterTrafficNodeInterface)
+		if err != nil {
+			return nil, err
+		}
+		options.MasterTrafficNodeIP = ips[0].String()
 	}
 
 	// Defaults are tested in TestKubeletDefaults

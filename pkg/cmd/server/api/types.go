@@ -176,8 +176,13 @@ type NodeConfig struct {
 	// Node may have multiple IPs, specify the IP to use for master traffic routing and pod traffic routing.
 	DeprecatedNodeIP string
 
+	// MasterTrafficNodeInterface is the network interface to be used for master traffic
+	MasterTrafficNodeInterface string
+
 	// MasterTrafficNodeIP is the node IP to use for master traffic routing
-	// If not specified, network parse/lookup on the nodeName is performed and the first non-loopback address is used
+	// If MasterTrafficNodeIP is not set and MasterTrafficNodeInterface is set, then first non-loopback IPv4 addr from MasterTrafficNodeInterface is used.
+	// If MasterTrafficNodeIP and MasterTrafficNodeInterface is not set, then network parse/lookup on the nodeName is performed
+	// and the first non-loopback IPv4 address is used.
 	MasterTrafficNodeIP string
 
 	// ServingInfo describes how to start serving
