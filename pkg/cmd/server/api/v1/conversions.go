@@ -149,6 +149,10 @@ func SetDefaults_NodeConfig(obj *NodeConfig) {
 	}
 	SetDefaults_ClientConnectionOverrides(obj.MasterClientConnectionOverrides)
 
+	if len(obj.MasterTrafficNodeIP) == 0 {
+		obj.MasterTrafficNodeIP = obj.DeprecatedNodeIP
+	}
+
 	// Defaults/migrations for NetworkConfig
 	if len(obj.NetworkConfig.NetworkPluginName) == 0 {
 		obj.NetworkConfig.NetworkPluginName = obj.DeprecatedNetworkPluginName

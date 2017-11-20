@@ -139,7 +139,7 @@ func overrideNodeConfigForBootstrap(nodeConfig *configapi.NodeConfig, bootstrapK
 	// Set impliict defaults the same as the kubelet (until this entire code path is removed)
 	nodeConfig.NodeName = nodeutil.GetHostname(nodeConfig.NodeName)
 	if nodeConfig.DNSIP == "0.0.0.0" {
-		nodeConfig.DNSIP = nodeConfig.NodeIP
+		nodeConfig.DNSIP = nodeConfig.MasterTrafficNodeIP
 		// TODO: the Kubelet should do this defaulting (to the IP it recognizes)
 		if len(nodeConfig.DNSIP) == 0 {
 			if ip, err := cmdutil.DefaultLocalIP4(); err == nil {

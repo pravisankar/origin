@@ -172,9 +172,13 @@ type NodeConfig struct {
 	// If you're describing a set of static nodes to the master, this value must match one of the values in the list
 	NodeName string
 
-	// Node may have multiple IPs, specify the IP to use for pod traffic routing
+	// Deprecated and maintained for backward compatibility
+	// Node may have multiple IPs, specify the IP to use for master traffic routing and pod traffic routing.
+	DeprecatedNodeIP string
+
+	// MasterTrafficNodeIP is the node IP to use for master traffic routing
 	// If not specified, network parse/lookup on the nodeName is performed and the first non-loopback address is used
-	NodeIP string
+	MasterTrafficNodeIP string
 
 	// ServingInfo describes how to start serving
 	ServingInfo ServingInfo
