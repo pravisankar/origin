@@ -277,3 +277,12 @@ func RegisterSharedInformerEventHandlers(kubeInformers kinternalinformers.Shared
 		},
 	})
 }
+
+func GetPodTrafficNodeIPAnnotation(node *kapi.Node) (string, error) {
+	if len(node.Annotations) > 0 {
+		if nodeIP, ok := node.Annotations[networkapi.PodTrafficNodeIPAnnotation]; ok {
+			return nodeIP, nil
+		}
+	}
+	return "", fmt.Errorf("pod traffic node IP not found for node %q", node.Name)
+}

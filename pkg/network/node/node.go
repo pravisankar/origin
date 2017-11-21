@@ -17,11 +17,13 @@ import (
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	kapierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	kubeutilnet "k8s.io/apimachinery/pkg/util/net"
 	kwait "k8s.io/apimachinery/pkg/util/wait"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/record"
 	kapi "k8s.io/kubernetes/pkg/api"
@@ -300,6 +302,10 @@ func (node *OsdnNode) Start() error {
 		glog.Errorf("Local networks conflict with SDN; this will eventually cause problems: %v", err)
 	}
 
+	if err := node.AssignPodTrafficNodeIP(); err != nil {
+		return err
+	}
+
 	node.localSubnetCIDR, err = node.getLocalSubnet()
 	if err != nil {
 		return err
@@ -396,6 +402,45 @@ func (node *OsdnNode) Start() error {
   "type": "openshift-sdn"
 }
 `), 0644)
+}
+
+func (node *OsdnNode) getLocalSubnet() (string, error) {
+	var subnet *networkapi.HostSubnet
+
+	// HostSubnet for the local node is created by SDN master but for that to happen
+	// these steps need be performed:
+	// - Kubelet need to create local node object (registration with master)
+	// - SDN node process need to assign pod traffic node IP as annotation
+	//
+	// Sometimes these steps could take unexpectedly long time, so give it plenty of
+	// time before returning an error since this will cause the node process to exit.
+	backoff := utilwait.Backoff{
+		// A bit over 4 minutes total
+		Duration: time.Second,
+		Factor:   1.5,
+		Steps:    13,
+	}
+	err := utilwait.ExponentialBackoff(backoff, func() (bool, error) {
+		var err error
+		subnet, err = node.networkClient.Network().HostSubnets().Get(node.hostName, metav1.GetOptions{})
+		if err == nil {
+			return true, nil
+		} else if kapierrors.IsNotFound(err) {
+			glog.Warningf("Could not find an allocated subnet for node: %s, Waiting...", node.hostName)
+			return false, nil
+		} else {
+			return false, err
+		}
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to get subnet for this host: %s, error: %v", node.hostName, err)
+	}
+
+	if err = node.networkInfo.ValidateNodeIP(subnet.HostIP); err != nil {
+		return "", fmt.Errorf("failed to validate own HostSubnet: %v", err)
+	}
+
+	return subnet.Subnet, nil
 }
 
 // FIXME: this should eventually go into kubelet via a CNI UPDATE/CHANGE action

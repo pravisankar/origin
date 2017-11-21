@@ -12,4 +12,7 @@ const (
 
 	// NetNamespace annotations
 	MulticastEnabledAnnotation = "netnamespace.network.openshift.io/multicast-enabled"
+
+	// Node annotations
+	PodTrafficNodeIPAnnotation = "pod.network.openshift.io/node-ip"
 )
