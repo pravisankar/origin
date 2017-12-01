@@ -3,6 +3,8 @@ package network
 import (
 	"strings"
 
+	"github.com/golang/glog"
+
 	kclientv1 "k8s.io/api/core/v1"
 	kclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -13,6 +15,7 @@ import (
 	kinternalinformers "k8s.io/kubernetes/pkg/client/informers/informers_generated/internalversion"
 
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
+	nodeoptions "github.com/openshift/origin/pkg/cmd/server/kubernetes/node/options"
 	"github.com/openshift/origin/pkg/network"
 	networkclient "github.com/openshift/origin/pkg/network/generated/internalclientset"
 	sdnnode "github.com/openshift/origin/pkg/network/node"
@@ -30,7 +33,11 @@ func NewSDNInterfaces(options configapi.NodeConfig, networkClient networkclient.
 		}
 	}
 
-	nodeIP, err := GetPodTrafficNodeIP(options)
+	hostName, err := nodeoptions.GetHostName(options)
+	if err != nil {
+		return nil, nil, err
+	}
+	nodeIP, err := GetPodTrafficNodeIP(options, hostName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -46,7 +53,7 @@ func NewSDNInterfaces(options configapi.NodeConfig, networkClient networkclient.
 
 	node, err := sdnnode.New(&sdnnode.OsdnNodeConfig{
 		PluginName:         options.NetworkConfig.NetworkPluginName,
-		Hostname:           options.NodeName,
+		Hostname:           hostName,
 		SelfIP:             nodeIP,
 		RuntimeEndpoint:    runtimeEndpoint,
 		MTU:                options.NetworkConfig.MTU,
@@ -70,7 +77,7 @@ func NewSDNInterfaces(options configapi.NodeConfig, networkClient networkclient.
 	return node, proxy, nil
 }
 
-func GetPodTrafficNodeIP(options configapi.NodeConfig) (string, error) {
+func GetPodTrafficNodeIP(options configapi.NodeConfig, hostName string) (string, error) {
 	nodeIP := options.NetworkConfig.PodTrafficNodeIP
 	nodeIface := options.NetworkConfig.PodTrafficNodeInterface
 
@@ -82,8 +89,12 @@ func GetPodTrafficNodeIP(options configapi.NodeConfig) (string, error) {
 			}
 			nodeIP = ips[0].String()
 		} else {
-			nodeIP = options.MasterTrafficNodeIP
+			var err error
+			if nodeIP, err = nodeoptions.GetMasterTrafficNodeIP(options, hostName); err != nil {
+				return "", err
+			}
 		}
+		glog.Infof("Resolved pod traffic node IP address to %q", nodeIP)
 	}
 
 	return nodeIP, nil

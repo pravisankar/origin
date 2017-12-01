@@ -4,16 +4,21 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/golang/glog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	kubeutilnet "k8s.io/apimachinery/pkg/util/net"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	kubeletoptions "k8s.io/kubernetes/cmd/kubelet/app/options"
 	"k8s.io/kubernetes/pkg/features"
 	"k8s.io/kubernetes/pkg/kubelet/apis/kubeletconfig"
 	kubeletcni "k8s.io/kubernetes/pkg/kubelet/network/cni"
 	kubelettypes "k8s.io/kubernetes/pkg/kubelet/types"
+	kexec "k8s.io/utils/exec"
 
 	configapi "github.com/openshift/origin/pkg/cmd/server/api"
 	cmdutil "github.com/openshift/origin/pkg/cmd/util"
@@ -46,6 +51,9 @@ func Build(options configapi.NodeConfig) (*kubeletoptions.KubeletServer, error) 
 		return nil, fmt.Errorf("cannot parse node port: %v", err)
 	}
 
+	// Set MasterTrafficNodeIP only if MasterTrafficNodeInterface is set.
+	// For non openshift SDN network plugins, server.NodeIP will be empty if MasterTrafficNodeIP
+	// and MasterTrafficNodeInterface are not set.
 	if len(options.MasterTrafficNodeInterface) > 0 && len(options.MasterTrafficNodeIP) == 0 {
 		ips, err := netutils.GetIPAddrsFromNetworkInterface(options.MasterTrafficNodeInterface)
 		if err != nil {
@@ -156,9 +164,70 @@ func Build(options configapi.NodeConfig) (*kubeletoptions.KubeletServer, error) 
 		server.CNIConfDir = kubeletcni.DefaultNetDir
 		server.CNIBinDir = kubeletcni.DefaultCNIDir
 		server.HairpinMode = kubeletconfig.HairpinNone
+
+		hostName, err := GetHostName(options)
+		if err != nil {
+			return nil, fmt.Errorf("unable to fetch host name: %v", err)
+		}
+		nodeIP, err := GetMasterTrafficNodeIP(options, hostName)
+		if err != nil {
+			return nil, fmt.Errorf("unable to fetch master traffic node ip: %v", err)
+		}
+
+		// For openshift SDN plugin, always set valid node IP and host name
+		// so that we can get same node IP for pod traffic and master traffic
+		// when PodTrafficNodeIP and MasterTrafficNodeIP params are not set.
+		server.NodeIP = nodeIP
+		server.HostnameOverride = hostName
 	}
 
 	return server, nil
+}
+
+func GetHostName(options configapi.NodeConfig) (string, error) {
+	nodeName := options.NodeName
+
+	if len(nodeName) == 0 {
+		output, err := kexec.New().Command("uname", "-n").CombinedOutput()
+		if err != nil {
+			return "", err
+		}
+		nodeName = strings.TrimSpace(string(output))
+		glog.Infof("Resolved hostname to %q", nodeName)
+	}
+
+	return nodeName, nil
+}
+
+func GetMasterTrafficNodeIP(options configapi.NodeConfig, hostName string) (string, error) {
+	nodeIP := options.MasterTrafficNodeIP
+	nodeIface := options.MasterTrafficNodeInterface
+
+	if len(nodeIP) == 0 {
+		if len(nodeIface) > 0 {
+			ips, err := netutils.GetIPAddrsFromNetworkInterface(nodeIface)
+			if err != nil {
+				return "", err
+			}
+			nodeIP = ips[0].String()
+		} else {
+			var err error
+			nodeIP, err = netutils.GetNodeIP(hostName)
+			if err != nil {
+				glog.V(5).Infof("Failed to determine node address from hostname %s; using default interface (%v)", hostName, err)
+
+				var defaultIP net.IP
+				defaultIP, err = kubeutilnet.ChooseHostInterface()
+				if err != nil {
+					return "", err
+				}
+				nodeIP = defaultIP.String()
+			}
+		}
+		glog.Infof("Resolved master traffic node IP address to %q", nodeIP)
+	}
+
+	return nodeIP, nil
 }
 
 func ToFlags(config *kubeletoptions.KubeletServer) []string {
