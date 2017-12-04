@@ -52,31 +52,28 @@ func (master *OsdnMaster) SubnetStartMaster(clusterNetworks []common.ClusterNetw
 	return nil
 }
 
-// addNode takes the nodeName, a preferred nodeIP, the node's annotations and other valid ip addresses
+// addNode takes the nodeName, a preferred nodeIP and the node's annotations
 // Creates or updates a HostSubnet if needed
-// Returns the IP address used for hostsubnet (either the preferred or one from the otherValidAddresses) and any error
-func (master *OsdnMaster) addNode(nodeName string, nodeIP string, hsAnnotations map[string]string, otherValidAddresses []kapi.NodeAddress) (string, error) {
+func (master *OsdnMaster) addNode(nodeName string, nodeIP string, hsAnnotations map[string]string) error {
 	// Validate node IP before proceeding
 	if err := master.networkInfo.ValidateNodeIP(nodeIP); err != nil {
-		return "", err
+		return err
 	}
 
 	// Check if subnet needs to be created or updated
 	sub, err := master.networkClient.Network().HostSubnets().Get(nodeName, metav1.GetOptions{})
 	if err == nil {
 		if sub.HostIP == nodeIP {
-			return nodeIP, nil
-		} else if isValidNodeIP(otherValidAddresses, sub.HostIP) {
-			return sub.HostIP, nil
+			return nil
 		} else {
 			// Node IP changed, update old subnet
 			sub.HostIP = nodeIP
 			sub, err = master.networkClient.Network().HostSubnets().Update(sub)
 			if err != nil {
-				return "", fmt.Errorf("error updating subnet %s for node %s: %v", sub.Subnet, nodeName, err)
+				return fmt.Errorf("error updating subnet %s for node %s: %v", sub.Subnet, nodeName, err)
 			}
 			glog.Infof("Updated HostSubnet %s", common.HostSubnetToString(sub))
-			return nodeIP, nil
+			return nil
 		}
 	}
 
@@ -100,13 +97,13 @@ func (master *OsdnMaster) addNode(nodeName string, nodeIP string, hsAnnotations 
 			sub, err = master.networkClient.Network().HostSubnets().Create(sub)
 			if err != nil {
 				possibleSubnet.ReleaseNetwork(sn)
-				return "", fmt.Errorf("error allocating node: %s", nodeName)
+				return fmt.Errorf("error allocating node: %s", nodeName)
 			}
 			glog.Infof("Created HostSubnet %s", common.HostSubnetToString(sub))
-			return nodeIP, nil
+			return nil
 		}
 	}
-	return "", fmt.Errorf("error allocating network for node %s: %v", nodeName, err)
+	return fmt.Errorf("error allocating network for node %s: %v", nodeName, err)
 }
 
 func (master *OsdnMaster) deleteNode(nodeName string) error {
@@ -203,18 +200,17 @@ func (master *OsdnMaster) handleAddOrUpdateNode(obj, _ interface{}, eventType wa
 	}
 	master.clearInitialNodeNetworkUnavailableCondition(node)
 
-	if oldNodeIP, ok := master.hostSubnetNodeIPs[node.UID]; ok && ((nodeIP == oldNodeIP) || isValidNodeIP(node.Status.Addresses, oldNodeIP)) {
+	if oldNodeIP, ok := master.hostSubnetNodeIPs[node.UID]; ok && (nodeIP == oldNodeIP) {
 		return
 	}
 	// Node status is frequently updated by kubelet, so log only if the above condition is not met
 	glog.V(5).Infof("Watch %s event for Node %q", eventType, node.Name)
 
-	usedNodeIP, err := master.addNode(node.Name, nodeIP, nil, node.Status.Addresses)
-	if err != nil {
+	if err := master.addNode(node.Name, nodeIP, nil); err != nil {
 		glog.Errorf("Error creating subnet for node %s, ip %s: %v", node.Name, nodeIP, err)
 		return
 	}
-	master.hostSubnetNodeIPs[node.UID] = usedNodeIP
+	master.hostSubnetNodeIPs[node.UID] = nodeIP
 }
 
 func (master *OsdnMaster) handleDeleteNode(obj interface{}) {
@@ -260,8 +256,8 @@ func (master *OsdnMaster) watchSubnets() {
 						glog.Errorf("Vnid %s is an invalid value for annotation %s. Annotation will be ignored.", vnid, networkapi.FixedVNIDHostAnnotation)
 					}
 				}
-				_, err = master.addNode(name, hostIP, hsAnnotations, nil)
-				if err != nil {
+
+				if err = master.addNode(name, hostIP, hsAnnotations); err != nil {
 					glog.Errorf("Error creating subnet for node %s, ip %s: %v", name, hostIP, err)
 					return nil
 				}
