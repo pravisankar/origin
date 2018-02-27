@@ -193,28 +193,55 @@ func (master *OsdnMaster) deleteNode(nodeName string) error {
 func (master *OsdnMaster) clearInitialNodeNetworkUnavailableCondition(node *kapi.Node) {
 	// Informer cache should not be mutated, so get a copy of the object
 	knode := node.DeepCopy()
+	glog.Errorf("RAVI: In clearInitialNodeNetworkUnavailableCondition")
+	found := false
+	for i := range knode.Status.Conditions {
+		if knode.Status.Conditions[i].Type == kapi.NodeNetworkUnavailable {
+			found = true
+			break
+		}
+	}
+	if !found {
+		knode.Status.Conditions = append(knode.Status.Conditions, kapi.NodeCondition{
+			Type:               kapi.NodeNetworkUnavailable,
+			Status:             kapi.ConditionTrue,
+			Reason:             "NoRouteCreated",
+			Message:            "Node created without a route",
+			LastTransitionTime: metav1.Now(),
+		})
+		var err error
+		if knode, err = master.kClient.Core().Nodes().UpdateStatus(knode); err != nil {
+			utilruntime.HandleError(fmt.Errorf("RAVI: status update failed for local node: %v", err))
+			return
+		}
+		glog.Errorf("RAVI: Updated node status with kapi.NodeNetworkUnavailable=True, name: %s, node: %v", knode.Name, knode.Status.Conditions)
+	}
+
 	cleared := false
 	resultErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		var err error
 
-		if knode != node {
+		//if knode != node {
 			knode, err = master.kClient.Core().Nodes().Get(node.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
-		}
+		//}
 
 		for i := range knode.Status.Conditions {
 			if knode.Status.Conditions[i].Type == kapi.NodeNetworkUnavailable {
 				condition := &knode.Status.Conditions[i]
+				glog.Errorf("RAVI: Got condition: %v", condition)
 				if condition.Status != kapi.ConditionFalse && condition.Reason == "NoRouteCreated" {
 					condition.Status = kapi.ConditionFalse
 					condition.Reason = "RouteCreated"
 					condition.Message = "openshift-sdn cleared kubelet-set NoRouteCreated"
 					condition.LastTransitionTime = metav1.Now()
 
+					glog.Errorf("RAVI: Trying to clear the condition")
 					if knode, err = master.kClient.Core().Nodes().UpdateStatus(knode); err == nil {
 						cleared = true
+						glog.Errorf("RAVI: Yes, Cleared!!")
 					}
 				}
 			}
