@@ -12,6 +12,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl/cmd/templates"
 
 	networkclientinternal "github.com/openshift/origin/pkg/network/generated/internalclientset"
+	netutil "github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/cluster/network/in_pod/util"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/log"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/diagnostics/types"
 	"github.com/openshift/origin/pkg/oc/admin/diagnostics/options"
@@ -133,12 +134,18 @@ func (o NetworkPodDiagnosticsOptions) buildNetworkPodDiagnostics() ([]types.Diag
 		return nil, err
 	}
 
+	runtime, err := netutil.GetRuntime()
+	if err != nil {
+		return nil, err
+	}
+
 	for _, diagnosticName := range requestedDiagnostics {
 		switch diagnosticName {
 
 		case CheckNodeNetworkName:
 			diagnostics = append(diagnostics, CheckNodeNetwork{
 				KubeClient: kubeClient,
+				Runtime:    runtime,
 			})
 
 		case CheckPodNetworkName:
@@ -146,6 +153,7 @@ func (o NetworkPodDiagnosticsOptions) buildNetworkPodDiagnostics() ([]types.Diag
 				KubeClient:           kubeClient,
 				NetNamespacesClient:  networkClient.Network(),
 				ClusterNetworkClient: networkClient.Network(),
+				Runtime:              runtime,
 			})
 
 		case CheckExternalNetworkName:
@@ -156,11 +164,13 @@ func (o NetworkPodDiagnosticsOptions) buildNetworkPodDiagnostics() ([]types.Diag
 				KubeClient:           kubeClient,
 				NetNamespacesClient:  networkClient.Network(),
 				ClusterNetworkClient: networkClient.Network(),
+				Runtime:              runtime,
 			})
 
 		case CollectNetworkInfoName:
 			diagnostics = append(diagnostics, CollectNetworkInfo{
 				KubeClient: kubeClient,
+				Runtime:    runtime,
 			})
 
 		default:
