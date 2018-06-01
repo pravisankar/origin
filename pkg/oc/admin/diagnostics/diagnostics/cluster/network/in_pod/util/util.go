@@ -242,6 +242,11 @@ func getSDNRunningPods(kubeClient kclientset.Interface) ([]kapi.Pod, error) {
 		if pod.Spec.SecurityContext.HostNetwork {
 			continue
 		}
+
+		// Skip pods that are not ready
+		if len(pod.Status.ContainerStatuses) == 0 || !pod.Status.ContainerStatuses[0].Ready {
+			continue
+		}
 		filtered_pods = append(filtered_pods, pod)
 	}
 	return filtered_pods, nil

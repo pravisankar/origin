@@ -159,7 +159,7 @@ func (d *NetworkDiagnostic) Check() types.DiagnosticResult {
 	}()
 	<-done
 	signal.Stop(sig)
-	d.Cleanup()
+	//d.Cleanup()
 
 	return d.res
 }
